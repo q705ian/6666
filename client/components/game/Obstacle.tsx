@@ -22,32 +22,30 @@ export function Obstacle({ x, height }: ObstacleProps) {
         },
       ]}
     >
-      <View style={styles.glow}>
-        <View style={styles.obstacleBody}>
-          {Array.from({ length: rows }).map((_, rowIndex) => (
-            <View key={rowIndex} style={styles.row}>
-              {Array.from({ length: cols }).map((_, colIndex) => {
-                const isTopRow = rowIndex === 0;
-                const isEvenPixel = (rowIndex + colIndex) % 2 === 0;
-                return (
-                  <View
-                    key={colIndex}
-                    style={[
-                      styles.pixel,
-                      {
-                        backgroundColor: isTopRow
-                          ? GAME_COLORS.obstacleOutline
-                          : isEvenPixel
-                          ? GAME_COLORS.obstacle
-                          : GAME_COLORS.obstacle + 'AA',
-                      },
-                    ]}
-                  />
-                );
-              })}
-            </View>
-          ))}
-        </View>
+      <View style={styles.obstacleBody}>
+        {Array.from({ length: rows }).map((_, rowIndex) => (
+          <View key={rowIndex} style={styles.row}>
+            {Array.from({ length: cols }).map((_, colIndex) => {
+              const isTopRow = rowIndex === 0;
+              const isEvenPixel = (rowIndex + colIndex) % 2 === 0;
+              return (
+                <View
+                  key={colIndex}
+                  style={[
+                    styles.pixel,
+                    {
+                      backgroundColor: isTopRow
+                        ? '#FF6B6B'
+                        : isEvenPixel
+                        ? '#EF4444'
+                        : '#FCA5A5',
+                    },
+                  ]}
+                />
+              );
+            })}
+          </View>
+        ))}
       </View>
     </View>
   );
@@ -57,19 +55,17 @@ const styles = StyleSheet.create({
   container: {
     position: 'absolute',
     width: OBSTACLE_WIDTH,
-  },
-  glow: {
-    flex: 1,
-    shadowColor: GAME_COLORS.obstacle,
+    shadowColor: '#EF4444',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 10,
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 6,
   },
   obstacleBody: {
     flex: 1,
-    backgroundColor: GAME_COLORS.background,
+    backgroundColor: '#FFFFFF',
     borderWidth: 2,
-    borderColor: GAME_COLORS.obstacle,
+    borderColor: '#EF4444',
   },
   row: {
     flexDirection: 'row',

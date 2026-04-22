@@ -1,11 +1,17 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet, Dimensions, Pressable } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
+import Animated, { 
+  useAnimatedStyle, 
+  useSharedValue, 
+  withSpring,
+  withTiming,
+  withSequence,
+  cancelAnimation
+} from 'react-native-reanimated';
 import { Screen } from '@/components/Screen';
 import { Ground } from '@/components/game/Ground';
 import { Obstacle } from '@/components/game/Obstacle';
 import {
-  GAME_COLORS,
   GAME_SPEED_INITIAL,
   OBSTACLE_WIDTH,
   GROUND_HEIGHT,
@@ -30,108 +36,75 @@ export default function GameScreen() {
   const [highScore, setHighScore] = useState(0);
   const [obstacles, setObstacles] = useState<ObstacleItem[]>([]);
 
-  // Player physics using animated values
+  // 玩家位置
   const playerY = useSharedValue(0);
+  const playerScale = useSharedValue(1);
   
-  // Game state refs - stored in refs to avoid dependency issues
-  const gameStateRef = useRef<GameState>('idle');
+  // 游戏状态 refs
   const gameSpeed = useRef(GAME_SPEED_INITIAL);
   const lastObstacleTime = useRef(0);
   const obstacleIdCounter = useRef(0);
   const currentScoreRef = useRef(0);
-  const velocity = useRef(0);
   const isPlaying = useRef(false);
-  const isJumping = useRef(false);
-  const playerYValue = useRef(0);
+  const animationFrameRef = useRef<number | null>(null);
+  const lastTimeRef = useRef(0);
+  const gameStateRef = useRef<GameState>('idle');
+  
+  // SharedValue refs 用于在 useEffect 外部访问
+  const playerYRef = useRef(playerY);
+  const playerScaleRef = useRef(playerScale);
+  
+  // 同步 refs
+  useEffect(() => {
+    playerYRef.current = playerY;
+    playerScaleRef.current = playerScale;
+  });
 
   const playerLeft = 60;
   const playerRight = playerLeft + PLAYER_SIZE;
   const groundTop = SCREEN_HEIGHT - GROUND_HEIGHT;
 
-  // Update gameStateRef when gameState changes
+  // 同步游戏状态
   useEffect(() => {
     gameStateRef.current = gameState;
     isPlaying.current = gameState === 'playing';
   }, [gameState]);
 
-  // Sync playerY with playerYValue
-  useEffect(() => {
-    playerY.value = playerYValue.current;
-  });
-
-  const handleGameOver = useCallback(() => {
-    setGameState('gameover');
-    setHighScore((prev) => Math.max(prev, currentScoreRef.current));
-  }, []);
-
-  // Start game
-  const startGame = useCallback(() => {
-    setGameState('playing');
-    setScore(0);
-    currentScoreRef.current = 0;
-    gameSpeed.current = GAME_SPEED_INITIAL;
-    lastObstacleTime.current = 0;
-    obstacleIdCounter.current = 0;
-    velocity.current = 0;
-    playerYValue.current = 0;
-    isJumping.current = false;
-    setObstacles([]);
-    isPlaying.current = true;
-  }, []);
-
-  // Reset game
-  const resetGame = useCallback(() => {
-    setObstacles([]);
-    playerYValue.current = 0;
-    velocity.current = 0;
-    isJumping.current = false;
-    gameSpeed.current = GAME_SPEED_INITIAL;
-    obstacleIdCounter.current = 0;
-    startGame();
-  }, [startGame]);
-
-  // Main game action
-  const jump = useCallback(() => {
-    if (gameStateRef.current === 'idle') {
-      startGame();
-      return;
-    }
-    if (gameStateRef.current === 'gameover') {
-      resetGame();
-      return;
-    }
-    if (!isJumping.current) {
-      velocity.current = -18;
-      isJumping.current = true;
-    }
-  }, [startGame, resetGame]);
-
-  // Game loop using useEffect + setInterval
+  // 地面碰撞检测
   useEffect(() => {
     if (gameState !== 'playing') return;
 
-    const gameLoop = setInterval(() => {
+    const intervalId = setInterval(() => {
+      const py = playerYRef.current;
+      if (py.value > -10 && py.value < 10) {
+        py.value = withSpring(0, { damping: 20, stiffness: 300 });
+      }
+    }, 16);
+
+    return () => clearInterval(intervalId);
+  }, [gameState]);
+
+  // 游戏主循环
+  useEffect(() => {
+    if (gameState !== 'playing') {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+      return;
+    }
+
+    const gameLoop = (currentTime: number) => {
       if (!isPlaying.current) return;
 
-      // Apply gravity
-      velocity.current += 0.8;
-      playerYValue.current -= velocity.current;
+      const deltaTime = Math.min((currentTime - lastTimeRef.current) / 1000, 0.05);
+      lastTimeRef.current = currentTime;
 
-      // Ground collision
-      if (playerYValue.current <= 0) {
-        playerYValue.current = 0;
-        velocity.current = 0;
-        isJumping.current = false;
-      }
+      // 更新游戏速度
+      gameSpeed.current += 0.5 * deltaTime;
 
-      // Update game speed
-      gameSpeed.current += 0.001;
-
-      // Spawn obstacles
-      const currentTime = Date.now();
-      const spawnInterval = Math.max(800, 1500 - gameSpeed.current * 50);
-      
-      if (currentTime - lastObstacleTime.current > spawnInterval) {
+      // 生成障碍物
+      const spawnInterval = Math.max(0.8, 1.5 - gameSpeed.current * 0.05);
+      if (currentTime - lastObstacleTime.current > spawnInterval * 1000) {
         lastObstacleTime.current = currentTime;
         
         const newId = obstacleIdCounter.current++;
@@ -141,17 +114,18 @@ export default function GameScreen() {
         setObstacles(prev => [...prev, { id: newId, x: newX, height: newHeight }]);
       }
 
-      // Update obstacle positions
+      // 更新障碍物位置
       setObstacles(prev => {
+        const pyVal = playerYRef.current.value;
         const updated = prev
-          .map(obs => ({ ...obs, x: obs.x - gameSpeed.current }))
+          .map(obs => ({ ...obs, x: obs.x - gameSpeed.current * 60 * deltaTime }))
           .filter(obs => obs.x > -OBSTACLE_WIDTH);
 
-        // Check collision
-        const playerBottom = groundTop - playerYValue.current;
+        // 碰撞检测
+        const playerBottom = groundTop - pyVal;
         const playerTop = playerBottom - PLAYER_SIZE;
-        const playerLeftVal = playerLeft + 4;
-        const playerRightVal = playerRight - 4;
+        const playerLeftVal = playerLeft + 6;
+        const playerRightVal = playerRight - 6;
 
         for (const obs of updated) {
           const obsLeft = obs.x + 4;
@@ -161,11 +135,12 @@ export default function GameScreen() {
           if (
             playerRightVal > obsLeft &&
             playerLeftVal < obsRight &&
-            playerBottom > obsTop + 4 &&
+            playerBottom > obsTop + 6 &&
             playerTop < groundTop
           ) {
             isPlaying.current = false;
-            handleGameOver();
+            setGameState('gameover');
+            setHighScore(prev => Math.max(prev, currentScoreRef.current));
             return updated;
           }
         }
@@ -173,20 +148,97 @@ export default function GameScreen() {
         return updated;
       });
 
-      // Update score
+      // 更新分数
       const newScore = Math.floor(gameSpeed.current * 10);
       currentScoreRef.current = newScore;
       setScore(newScore);
 
-    }, 16); // ~60fps
+      animationFrameRef.current = requestAnimationFrame(gameLoop);
+    };
 
-    return () => clearInterval(gameLoop);
-  }, [gameState, groundTop, playerLeft, playerRight, handleGameOver]);
+    lastTimeRef.current = performance.now();
+    animationFrameRef.current = requestAnimationFrame(gameLoop);
 
-  // Animated style for player
-  const playerAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: -playerY.value }],
-  }));
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, [gameState, groundTop, playerLeft, playerRight]);
+
+  // 玩家动画样式
+  const playerAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [
+        { translateY: -playerY.value },
+        { scale: playerScale.value }
+      ],
+    };
+  });
+
+  // 开始游戏
+  const startGame = useCallback(() => {
+    const py = playerYRef.current;
+    const ps = playerScaleRef.current;
+    cancelAnimation(py);
+    py.value = 0;
+    ps.value = 1;
+    setGameState('playing');
+    setScore(0);
+    currentScoreRef.current = 0;
+    gameSpeed.current = GAME_SPEED_INITIAL;
+    lastObstacleTime.current = 0;
+    obstacleIdCounter.current = 0;
+    setObstacles([]);
+    isPlaying.current = true;
+    lastTimeRef.current = performance.now();
+  }, []);
+
+  // 重置游戏
+  const resetGame = useCallback(() => {
+    const py = playerYRef.current;
+    const ps = playerScaleRef.current;
+    cancelAnimation(py);
+    py.value = 0;
+    ps.value = 1;
+    setObstacles([]);
+    gameSpeed.current = GAME_SPEED_INITIAL;
+    obstacleIdCounter.current = 0;
+    isPlaying.current = true;
+    setGameState('playing');
+    setScore(0);
+    currentScoreRef.current = 0;
+    lastObstacleTime.current = 0;
+    lastTimeRef.current = performance.now();
+  }, []);
+
+  // 跳跃函数
+  const jump = useCallback(() => {
+    const py = playerYRef.current;
+    const ps = playerScaleRef.current;
+    if (gameStateRef.current === 'playing' && py.value >= 0) {
+      py.value = withSpring(-150, {
+        damping: 12,
+        stiffness: 180,
+        mass: 0.5,
+      });
+      ps.value = withSequence(
+        withTiming(1.1, { duration: 50 }),
+        withTiming(1, { duration: 100 })
+      );
+    }
+  }, []);
+
+  // 触摸处理
+  const handlePress = useCallback(() => {
+    if (gameStateRef.current === 'idle') {
+      startGame();
+    } else if (gameStateRef.current === 'gameover') {
+      resetGame();
+    } else if (gameStateRef.current === 'playing') {
+      jump();
+    }
+  }, [startGame, resetGame, jump]);
 
   return (
     <Screen style={styles.container}>
@@ -203,12 +255,12 @@ export default function GameScreen() {
           </View>
         </View>
 
-        {/* Game Canvas */}
-        <Pressable style={styles.canvas} onPress={jump}>
-          {/* Game elements */}
+        {/* 游戏画布 */}
+        <Pressable style={styles.canvas} onPressIn={handlePress}>
+          {/* 游戏元素 */}
           {gameState === 'playing' && (
             <>
-              {/* Player */}
+              {/* 玩家角色 */}
               <Animated.View style={[styles.playerContainer, playerAnimatedStyle, { bottom: GROUND_HEIGHT }]}>
                 <View style={styles.playerGlowOuter}>
                   <View style={styles.playerGlowInner}>
@@ -254,7 +306,7 @@ export default function GameScreen() {
                 </View>
               </Animated.View>
 
-              {/* Obstacles */}
+              {/* 障碍物 */}
               {obstacles.map((obstacle) => (
                 <Obstacle 
                   key={obstacle.id} 
@@ -267,18 +319,18 @@ export default function GameScreen() {
 
           <Ground screenWidth={SCREEN_WIDTH} />
 
-          {/* Start Screen */}
+          {/* 开始界面 */}
           {gameState === 'idle' && (
             <View style={styles.overlay}>
               <Text style={styles.title}>PIXEL RUN</Text>
               <Text style={styles.subtitle}>TAP TO START</Text>
               <View style={styles.instructionBox}>
-                <Text style={styles.instructionText}>Tap or Press to Jump</Text>
+                <Text style={styles.instructionText}>Tap to Jump</Text>
               </View>
             </View>
           )}
 
-          {/* Game Over Screen */}
+          {/* 游戏结束界面 */}
           {gameState === 'gameover' && (
             <View style={styles.overlay}>
               <Text style={styles.gameOverText}>GAME OVER</Text>
@@ -295,7 +347,7 @@ export default function GameScreen() {
         </Pressable>
       </View>
 
-      {/* Controls hint */}
+      {/* 操作提示 */}
       <View style={styles.controlsHint}>
         <Text style={styles.hintText}>TAP TO JUMP</Text>
       </View>
@@ -306,7 +358,7 @@ export default function GameScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: GAME_COLORS.background,
+    backgroundColor: '#F5F5F5',
   },
   gameArea: {
     flex: 1,
@@ -324,49 +376,51 @@ const styles = StyleSheet.create({
   scoreLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: GAME_COLORS.dimWhite,
+    color: '#666666',
     letterSpacing: 2,
   },
   scoreValue: {
     fontSize: 32,
     fontWeight: '900',
-    color: GAME_COLORS.accent,
-    textShadowColor: GAME_COLORS.accent,
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 10,
+    color: '#4F46E5',
+    textShadowColor: 'rgba(79, 70, 229, 0.3)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 8,
   },
   highScoreValue: {
     fontSize: 32,
     fontWeight: '900',
-    color: GAME_COLORS.neonPurple,
-    textShadowColor: GAME_COLORS.neonPurple,
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 10,
+    color: '#EC4899',
+    textShadowColor: 'rgba(236, 72, 153, 0.3)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 8,
   },
   canvas: {
     flex: 1,
-    backgroundColor: GAME_COLORS.background,
+    backgroundColor: '#F5F5F5',
   },
   playerContainer: {
     position: 'absolute',
     left: 60,
   },
   playerGlowOuter: {
-    shadowColor: GAME_COLORS.neonPurple,
+    shadowColor: '#4F46E5',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
+    shadowOpacity: 0.4,
     shadowRadius: 12,
+    elevation: 8,
   },
   playerGlowInner: {
-    shadowColor: GAME_COLORS.player,
+    shadowColor: '#00D4FF',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
+    shadowOpacity: 0.5,
     shadowRadius: 8,
+    elevation: 6,
   },
   playerBody: {
-    backgroundColor: GAME_COLORS.background,
+    backgroundColor: '#FFFFFF',
     borderWidth: 2,
-    borderColor: GAME_COLORS.player,
+    borderColor: '#4F46E5',
     padding: 2,
   },
   playerRow: {
@@ -377,50 +431,51 @@ const styles = StyleSheet.create({
     height: 10,
   },
   playerPixelFilled: {
-    backgroundColor: GAME_COLORS.player,
+    backgroundColor: '#4F46E5',
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(10, 10, 15, 0.85)',
+    backgroundColor: 'rgba(245, 245, 245, 0.95)',
   },
   title: {
     fontSize: 48,
     fontWeight: '900',
-    color: GAME_COLORS.accent,
-    textShadowColor: GAME_COLORS.accent,
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 20,
+    color: '#4F46E5',
+    textShadowColor: 'rgba(79, 70, 229, 0.2)',
+    textShadowOffset: { width: 0, height: 4 },
+    textShadowRadius: 12,
     letterSpacing: 8,
   },
   subtitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: GAME_COLORS.white,
+    color: '#333333',
     marginTop: 20,
     letterSpacing: 4,
   },
   instructionBox: {
     marginTop: 40,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
     borderWidth: 2,
-    borderColor: GAME_COLORS.neonPurple,
-    borderRadius: 8,
+    borderColor: '#EC4899',
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
   },
   instructionText: {
     fontSize: 14,
-    color: GAME_COLORS.dimWhite,
+    color: '#666666',
     letterSpacing: 1,
   },
   gameOverText: {
     fontSize: 40,
     fontWeight: '900',
-    color: GAME_COLORS.warning,
-    textShadowColor: GAME_COLORS.warning,
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 20,
+    color: '#EF4444',
+    textShadowColor: 'rgba(239, 68, 68, 0.2)',
+    textShadowOffset: { width: 0, height: 4 },
+    textShadowRadius: 12,
     letterSpacing: 4,
   },
   finalScoreBox: {
@@ -430,43 +485,45 @@ const styles = StyleSheet.create({
   finalScoreLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: GAME_COLORS.dimWhite,
+    color: '#666666',
     letterSpacing: 2,
   },
   finalScoreValue: {
     fontSize: 56,
     fontWeight: '900',
-    color: GAME_COLORS.white,
-    textShadowColor: GAME_COLORS.accent,
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 15,
+    color: '#333333',
+    textShadowColor: 'rgba(79, 70, 229, 0.2)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 8,
   },
   newRecordText: {
     fontSize: 16,
     fontWeight: '700',
-    color: GAME_COLORS.neonPurple,
+    color: '#EC4899',
     marginTop: 10,
     letterSpacing: 2,
-    textShadowColor: GAME_COLORS.neonPurple,
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 8,
+    textShadowColor: 'rgba(236, 72, 153, 0.3)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 6,
   },
   tapToRestart: {
     fontSize: 16,
     fontWeight: '600',
-    color: GAME_COLORS.dimWhite,
+    color: '#666666',
     marginTop: 40,
     letterSpacing: 2,
   },
   controlsHint: {
     paddingVertical: 15,
     alignItems: 'center',
-    backgroundColor: GAME_COLORS.ground,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#E5E5E5',
   },
   hintText: {
     fontSize: 11,
     fontWeight: '500',
-    color: GAME_COLORS.dimWhite,
+    color: '#999999',
     letterSpacing: 1,
   },
 });
