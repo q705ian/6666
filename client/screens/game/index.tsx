@@ -1,12 +1,9 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
-import { View, Text, StyleSheet, Dimensions, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, Pressable, Platform } from 'react-native';
 import Animated, { 
   useAnimatedStyle, 
   useSharedValue, 
-  withSpring,
-  withTiming,
-  withSequence,
-  cancelAnimation
+  cancelAnimation,
 } from 'react-native-reanimated';
 import { Screen } from '@/components/Screen';
 import { Ground } from '@/components/game/Ground';
@@ -36,9 +33,10 @@ export default function GameScreen() {
   const [highScore, setHighScore] = useState(0);
   const [obstacles, setObstacles] = useState<ObstacleItem[]>([]);
 
-  // 玩家位置
+  // 玩家位置和速度
   const playerY = useSharedValue(0);
-  const playerScale = useSharedValue(1);
+  const playerVelocity = useRef(0);
+  const isJumping = useRef(false);
   
   // 游戏状态 refs
   const gameSpeed = useRef(GAME_SPEED_INITIAL);
@@ -50,14 +48,17 @@ export default function GameScreen() {
   const lastTimeRef = useRef(0);
   const gameStateRef = useRef<GameState>('idle');
   
-  // SharedValue refs 用于在 useEffect 外部访问
+  // 函数 refs
+  const jumpFnRef = useRef<() => void | null>(null);
+  const startGameFnRef = useRef<() => void | null>(null);
+  const resetGameFnRef = useRef<() => void | null>(null);
+  
+  // SharedValue refs
   const playerYRef = useRef(playerY);
-  const playerScaleRef = useRef(playerScale);
   
   // 同步 refs
   useEffect(() => {
     playerYRef.current = playerY;
-    playerScaleRef.current = playerScale;
   });
 
   const playerLeft = 60;
@@ -70,19 +71,45 @@ export default function GameScreen() {
     isPlaying.current = gameState === 'playing';
   }, [gameState]);
 
-  // 地面碰撞检测
+  // 跳跃函数
+  const jump = useCallback(() => {
+    if (gameStateRef.current !== 'playing') return;
+    if (isJumping.current) return;
+    
+    isJumping.current = true;
+    playerVelocity.current = -18;
+  }, []);
+
+  // 键盘控制处理
   useEffect(() => {
-    if (gameState !== 'playing') return;
-
-    const intervalId = setInterval(() => {
-      const py = playerYRef.current;
-      if (py.value > -10 && py.value < 10) {
-        py.value = withSpring(0, { damping: 20, stiffness: 300 });
+    if (Platform.OS !== 'web') return;
+    
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const state = gameStateRef.current;
+      
+      if (state !== 'playing') {
+        if (e.key === ' ' || e.key === 'Enter' || e.key === 'w' || e.key === 'W') {
+          if (state === 'idle') {
+            startGameFnRef.current?.();
+          } else if (state === 'gameover') {
+            resetGameFnRef.current?.();
+          }
+        }
+        return;
       }
-    }, 16);
+      
+      if (e.key === 'w' || e.key === 'W' || e.key === ' ' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        jumpFnRef.current?.();
+      }
+    };
 
-    return () => clearInterval(intervalId);
-  }, [gameState]);
+    window.addEventListener('keydown', handleKeyDown);
+    
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
 
   // 游戏主循环
   useEffect(() => {
@@ -93,17 +120,36 @@ export default function GameScreen() {
       return;
     }
 
+    const updatePlayer = () => {
+      if (!isPlaying.current) return;
+      
+      // 物理模拟
+      const gravity = 0.8;
+      playerVelocity.current += gravity;
+      playerY.value += playerVelocity.current;
+      
+      // 地面碰撞
+      if (playerY.value >= 0) {
+        playerY.value = 0;
+        playerVelocity.current = 0;
+        isJumping.current = false;
+      }
+    };
+
     const gameLoop = (currentTime: number) => {
       if (!isPlaying.current) return;
 
       const deltaTime = Math.min((currentTime - lastTimeRef.current) / 1000, 0.05);
       lastTimeRef.current = currentTime;
 
+      // 更新玩家物理
+      updatePlayer();
+
       // 更新游戏速度
-      gameSpeed.current += 0.5 * deltaTime;
+      gameSpeed.current += 0.3 * deltaTime;
 
       // 生成障碍物
-      const spawnInterval = Math.max(0.8, 1.5 - gameSpeed.current * 0.05);
+      const spawnInterval = Math.max(0.8, 1.5 - gameSpeed.current * 0.03);
       if (currentTime - lastObstacleTime.current > spawnInterval * 1000) {
         lastObstacleTime.current = currentTime;
         
@@ -164,14 +210,13 @@ export default function GameScreen() {
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [gameState, groundTop, playerLeft, playerRight]);
+  }, [gameState, groundTop, playerLeft, playerRight, playerY]);
 
   // 玩家动画样式
   const playerAnimatedStyle = useAnimatedStyle(() => {
     return {
       transform: [
         { translateY: -playerY.value },
-        { scale: playerScale.value }
       ],
     };
   });
@@ -179,10 +224,10 @@ export default function GameScreen() {
   // 开始游戏
   const startGame = useCallback(() => {
     const py = playerYRef.current;
-    const ps = playerScaleRef.current;
     cancelAnimation(py);
     py.value = 0;
-    ps.value = 1;
+    playerVelocity.current = 0;
+    isJumping.current = false;
     setGameState('playing');
     setScore(0);
     currentScoreRef.current = 0;
@@ -197,10 +242,10 @@ export default function GameScreen() {
   // 重置游戏
   const resetGame = useCallback(() => {
     const py = playerYRef.current;
-    const ps = playerScaleRef.current;
     cancelAnimation(py);
     py.value = 0;
-    ps.value = 1;
+    playerVelocity.current = 0;
+    isJumping.current = false;
     setObstacles([]);
     gameSpeed.current = GAME_SPEED_INITIAL;
     obstacleIdCounter.current = 0;
@@ -212,24 +257,14 @@ export default function GameScreen() {
     lastTimeRef.current = performance.now();
   }, []);
 
-  // 跳跃函数
-  const jump = useCallback(() => {
-    const py = playerYRef.current;
-    const ps = playerScaleRef.current;
-    if (gameStateRef.current === 'playing' && py.value >= 0) {
-      py.value = withSpring(-150, {
-        damping: 12,
-        stiffness: 180,
-        mass: 0.5,
-      });
-      ps.value = withSequence(
-        withTiming(1.1, { duration: 50 }),
-        withTiming(1, { duration: 100 })
-      );
-    }
-  }, []);
+  // 更新函数 refs
+  useEffect(() => {
+    jumpFnRef.current = jump;
+    startGameFnRef.current = startGame;
+    resetGameFnRef.current = resetGame;
+  }, [jump, startGame, resetGame]);
 
-  // 触摸处理
+  // 点击/触摸处理
   const handlePress = useCallback(() => {
     if (gameStateRef.current === 'idle') {
       startGame();
@@ -256,7 +291,7 @@ export default function GameScreen() {
         </View>
 
         {/* 游戏画布 */}
-        <Pressable style={styles.canvas} onPressIn={handlePress}>
+        <Pressable style={styles.canvas} onPress={handlePress}>
           {/* 游戏元素 */}
           {gameState === 'playing' && (
             <>
@@ -325,7 +360,7 @@ export default function GameScreen() {
               <Text style={styles.title}>PIXEL RUN</Text>
               <Text style={styles.subtitle}>TAP TO START</Text>
               <View style={styles.instructionBox}>
-                <Text style={styles.instructionText}>Tap to Jump</Text>
+                <Text style={styles.instructionText}>Tap / W to Jump</Text>
               </View>
             </View>
           )}
@@ -349,7 +384,7 @@ export default function GameScreen() {
 
       {/* 操作提示 */}
       <View style={styles.controlsHint}>
-        <Text style={styles.hintText}>TAP TO JUMP</Text>
+        <Text style={styles.hintText}>TAP OR W KEY</Text>
       </View>
     </Screen>
   );
@@ -468,6 +503,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666666',
     letterSpacing: 1,
+    textAlign: 'center',
   },
   gameOverText: {
     fontSize: 40,
@@ -497,33 +533,27 @@ const styles = StyleSheet.create({
     textShadowRadius: 8,
   },
   newRecordText: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 20,
+    fontWeight: '800',
     color: '#EC4899',
-    marginTop: 10,
+    marginTop: 16,
     letterSpacing: 2,
-    textShadowColor: 'rgba(236, 72, 153, 0.3)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 6,
   },
   tapToRestart: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#666666',
-    marginTop: 40,
+    color: '#4F46E5',
+    marginTop: 30,
     letterSpacing: 2,
   },
   controlsHint: {
-    paddingVertical: 15,
+    paddingVertical: 16,
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#E5E5E5',
   },
   hintText: {
-    fontSize: 11,
-    fontWeight: '500',
+    fontSize: 12,
     color: '#999999',
-    letterSpacing: 1,
+    letterSpacing: 2,
+    fontWeight: '500',
   },
 });
