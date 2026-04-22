@@ -123,13 +123,13 @@ export default function GameScreen() {
     const updatePlayer = () => {
       if (!isPlaying.current) return;
       
-      // 物理模拟
+      // 物理模拟：playerY 代表上升高度（正值向上）
       const gravity = 0.8;
-      playerVelocity.current += gravity;
+      playerVelocity.current -= gravity; // 重力减少速度
       playerY.value += playerVelocity.current;
       
-      // 地面碰撞
-      if (playerY.value >= 0) {
+      // 地面碰撞：playerY 回到 0
+      if (playerY.value <= 0) {
         playerY.value = 0;
         playerVelocity.current = 0;
         isJumping.current = false;
@@ -167,8 +167,8 @@ export default function GameScreen() {
           .map(obs => ({ ...obs, x: obs.x - gameSpeed.current * 60 * deltaTime }))
           .filter(obs => obs.x > -OBSTACLE_WIDTH);
 
-        // 碰撞检测
-        const playerBottom = groundTop - pyVal;
+        // 碰撞检测 - playerY 代表上升高度
+        const playerBottom = groundTop + pyVal;
         const playerTop = playerBottom - PLAYER_SIZE;
         const playerLeftVal = playerLeft + 6;
         const playerRightVal = playerRight - 6;
@@ -212,11 +212,11 @@ export default function GameScreen() {
     };
   }, [gameState, groundTop, playerLeft, playerRight, playerY]);
 
-  // 玩家动画样式
+  // 玩家动画样式 - playerY 为正时向上移动
   const playerAnimatedStyle = useAnimatedStyle(() => {
     return {
       transform: [
-        { translateY: -playerY.value },
+        { translateY: -playerY.value }, // playerY 正值向上，所以要取反
       ],
     };
   });
@@ -297,46 +297,42 @@ export default function GameScreen() {
             <>
               {/* 玩家角色 */}
               <Animated.View style={[styles.playerContainer, playerAnimatedStyle, { bottom: GROUND_HEIGHT }]}>
-                <View style={styles.playerGlowOuter}>
-                  <View style={styles.playerGlowInner}>
-                    <View style={styles.playerBody}>
-                      <View style={styles.playerRow}>
-                        <View style={styles.playerPixel} />
-                        <View style={[styles.playerPixel, styles.playerPixelFilled]} />
-                        <View style={[styles.playerPixel, styles.playerPixelFilled]} />
-                        <View style={styles.playerPixel} />
-                      </View>
-                      <View style={styles.playerRow}>
-                        <View style={[styles.playerPixel, styles.playerPixelFilled]} />
-                        <View style={[styles.playerPixel, styles.playerPixelFilled]} />
-                        <View style={[styles.playerPixel, styles.playerPixelFilled]} />
-                        <View style={[styles.playerPixel, styles.playerPixelFilled]} />
-                      </View>
-                      <View style={styles.playerRow}>
-                        <View style={styles.playerPixel} />
-                        <View style={[styles.playerPixel, styles.playerPixelFilled]} />
-                        <View style={[styles.playerPixel, styles.playerPixelFilled]} />
-                        <View style={styles.playerPixel} />
-                      </View>
-                      <View style={styles.playerRow}>
-                        <View style={[styles.playerPixel, styles.playerPixelFilled]} />
-                        <View style={[styles.playerPixel, styles.playerPixelFilled]} />
-                        <View style={[styles.playerPixel, styles.playerPixelFilled]} />
-                        <View style={[styles.playerPixel, styles.playerPixelFilled]} />
-                      </View>
-                      <View style={styles.playerRow}>
-                        <View style={[styles.playerPixel, styles.playerPixelFilled]} />
-                        <View style={[styles.playerPixel, styles.playerPixelFilled]} />
-                        <View style={[styles.playerPixel, styles.playerPixelFilled]} />
-                        <View style={[styles.playerPixel, styles.playerPixelFilled]} />
-                      </View>
-                      <View style={styles.playerRow}>
-                        <View style={[styles.playerPixel, styles.playerPixelFilled]} />
-                        <View style={styles.playerPixel} />
-                        <View style={styles.playerPixel} />
-                        <View style={[styles.playerPixel, styles.playerPixelFilled]} />
-                      </View>
-                    </View>
+                <View style={styles.playerBody}>
+                  <View style={styles.playerRow}>
+                    <View style={styles.playerPixel} />
+                    <View style={[styles.playerPixel, styles.playerPixelFilled]} />
+                    <View style={[styles.playerPixel, styles.playerPixelFilled]} />
+                    <View style={styles.playerPixel} />
+                  </View>
+                  <View style={styles.playerRow}>
+                    <View style={[styles.playerPixel, styles.playerPixelFilled]} />
+                    <View style={[styles.playerPixel, styles.playerPixelFilled]} />
+                    <View style={[styles.playerPixel, styles.playerPixelFilled]} />
+                    <View style={[styles.playerPixel, styles.playerPixelFilled]} />
+                  </View>
+                  <View style={styles.playerRow}>
+                    <View style={styles.playerPixel} />
+                    <View style={[styles.playerPixel, styles.playerPixelFilled]} />
+                    <View style={[styles.playerPixel, styles.playerPixelFilled]} />
+                    <View style={styles.playerPixel} />
+                  </View>
+                  <View style={styles.playerRow}>
+                    <View style={[styles.playerPixel, styles.playerPixelFilled]} />
+                    <View style={[styles.playerPixel, styles.playerPixelFilled]} />
+                    <View style={[styles.playerPixel, styles.playerPixelFilled]} />
+                    <View style={[styles.playerPixel, styles.playerPixelFilled]} />
+                  </View>
+                  <View style={styles.playerRow}>
+                    <View style={[styles.playerPixel, styles.playerPixelFilled]} />
+                    <View style={[styles.playerPixel, styles.playerPixelFilled]} />
+                    <View style={[styles.playerPixel, styles.playerPixelFilled]} />
+                    <View style={[styles.playerPixel, styles.playerPixelFilled]} />
+                  </View>
+                  <View style={styles.playerRow}>
+                    <View style={[styles.playerPixel, styles.playerPixelFilled]} />
+                    <View style={styles.playerPixel} />
+                    <View style={styles.playerPixel} />
+                    <View style={[styles.playerPixel, styles.playerPixelFilled]} />
                   </View>
                 </View>
               </Animated.View>
@@ -437,20 +433,6 @@ const styles = StyleSheet.create({
   playerContainer: {
     position: 'absolute',
     left: 60,
-  },
-  playerGlowOuter: {
-    shadowColor: '#4F46E5',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  playerGlowInner: {
-    shadowColor: '#00D4FF',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 8,
-    elevation: 6,
   },
   playerBody: {
     backgroundColor: '#FFFFFF',
