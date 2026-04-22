@@ -87,20 +87,31 @@ export default function GameScreen() {
     const handleKeyDown = (e: KeyboardEvent) => {
       const state = gameStateRef.current;
       
-      if (state !== 'playing') {
-        if (e.key === ' ' || e.key === 'Enter' || e.key === 'w' || e.key === 'W') {
-          if (state === 'idle') {
-            startGameFnRef.current?.();
-          } else if (state === 'gameover') {
-            resetGameFnRef.current?.();
-          }
-        }
-        return;
-      }
-      
+      // W/空格/上箭头 - 跳跃（游戏中）或开始游戏（非游戏中）
       if (e.key === 'w' || e.key === 'W' || e.key === ' ' || e.key === 'ArrowUp') {
         e.preventDefault();
-        jumpFnRef.current?.();
+        
+        if (state === 'idle') {
+          // 开始游戏
+          startGameFnRef.current?.();
+          // 开始游戏后也要跳跃
+          setTimeout(() => jumpFnRef.current?.(), 50);
+        } else if (state === 'gameover') {
+          // 重置游戏
+          resetGameFnRef.current?.();
+        } else if (state === 'playing') {
+          // 跳跃
+          jumpFnRef.current?.();
+        }
+      }
+      
+      // Enter - 开始/重置游戏
+      if (e.key === 'Enter') {
+        if (state === 'idle') {
+          startGameFnRef.current?.();
+        } else if (state === 'gameover') {
+          resetGameFnRef.current?.();
+        }
       }
     };
 
@@ -268,6 +279,8 @@ export default function GameScreen() {
   const handlePress = useCallback(() => {
     if (gameStateRef.current === 'idle') {
       startGame();
+      // 开始游戏后也要跳跃
+      setTimeout(() => jumpFnRef.current?.(), 50);
     } else if (gameStateRef.current === 'gameover') {
       resetGame();
     } else if (gameStateRef.current === 'playing') {
