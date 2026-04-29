@@ -22,7 +22,8 @@ export default function RootLayout() {
           headerShown: false
         }}
       >
-        <Stack.Screen name="index" options={{ title: "" }} />
+        <Stack.Screen name="(tabs)" options={{ title: "" }} />
+        <Stack.Screen name="chat" options={{ title: "AI 导游", headerShown: true, headerTitle: "羊城导游" }} />
       </Stack>
       <Toast />
     </Provider>
