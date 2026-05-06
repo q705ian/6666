@@ -198,8 +198,8 @@ export default function CheckinScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Content */}
-      {activeTab === 'records' ? (
+      {/* Content - Records */}
+      {activeTab === 'records' && (
         <FlatList
           data={records}
           renderItem={renderRecord}
@@ -218,15 +218,26 @@ export default function CheckinScreen() {
             </View>
           }
         />
-      ) : (
+      )}
+
+      {/* Content - Nearby */}
+      {activeTab === 'nearby' && (
         <FlatList
           data={nearbyAttractions}
           renderItem={renderNearbyAttraction}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => `nearby-${item.id}`}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           numColumns={2}
           columnWrapperStyle={styles.columnWrapper}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Ionicons name="compass-outline" size={64} color={textSecondary as string} />
+              <Text style={[styles.emptyText, { color: textSecondary }]}>
+                暂无附近景点
+              </Text>
+            </View>
+          }
         />
       )}
 
