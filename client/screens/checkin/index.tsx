@@ -45,28 +45,54 @@ const CHECKIN_RECORDS = [
 // 附近景点数据
 const NEARBY_ATTRACTIONS = [
   {
-    id: '1',
+    id: 'gz_tower',
     name: '广州塔',
     district: '海珠区',
     distance: '1.2km',
     image: 'https://images.unsplash.com/photo-1560180474-e8563fd75bab?w=200',
     tags: ['地标', '夜景'],
+    lat: 23.1065,
+    lng: 113.3245,
   },
   {
-    id: '2',
-    name: '海珠湿地公园',
-    district: '海珠区',
+    id: 'chen_clan',
+    name: '陈家祠',
+    district: '荔湾区',
     distance: '2.5km',
-    image: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=200',
-    tags: ['自然', '氧吧'],
+    image: 'https://images.unsplash.com/photo-1584551246679-0daf3d275d0f?w=200',
+    tags: ['古建筑', '文化'],
+    lat: 23.1258,
+    lng: 113.2436,
   },
   {
-    id: '3',
-    name: '太古仓',
-    district: '海珠区',
+    id: 'shamian',
+    name: '沙面岛',
+    district: '荔湾区',
     distance: '3.1km',
+    image: 'https://images.unsplash.com/photo-1599707367072-cd6ada2bc375?w=200',
+    tags: ['欧式', '历史'],
+    lat: 23.1097,
+    lng: 113.2389,
+  },
+  {
+    id: 'baiyun_mountain',
+    name: '白云山',
+    district: '白云区',
+    distance: '4.5km',
+    image: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=200',
+    tags: ['登山', '自然'],
+    lat: 23.1824,
+    lng: 113.2988,
+  },
+  {
+    id: 'beijing_road',
+    name: '北京路',
+    district: '越秀区',
+    distance: '3.8km',
     image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=200',
-    tags: ['文艺', '夜生活'],
+    tags: ['美食', '购物'],
+    lat: 23.1249,
+    lng: 113.2644,
   },
 ];
 
@@ -93,9 +119,18 @@ export default function CheckinScreen() {
     return date.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' });
   };
 
-  const handleCheckin = () => {
-    // 跳转到AI对话页面发起打卡
-    router.push('/chat');
+  const handleCheckinPress = () => {
+    handleCheckin();
+  };
+
+  const handleCheckin = (id?: string, name?: string, lat?: number, lng?: number) => {
+    // 跳转到打卡页面
+    router.push('/checkin-action', { 
+      id: id || 'gz_tower',
+      name: name || '广州塔',
+      lat: String(lat || 23.1065),
+      lng: String(lng || 113.3245),
+    });
   };
 
   const renderRecord = ({ item }: { item: typeof CHECKIN_RECORDS[0] }) => (
@@ -122,9 +157,18 @@ export default function CheckinScreen() {
   );
 
   const renderNearbyAttraction = ({ item }: { item: typeof NEARBY_ATTRACTIONS[0] }) => (
-    <TouchableOpacity style={styles.nearbyCard}>
+    <TouchableOpacity 
+      style={styles.nearbyCard}
+      onPress={() => router.push('/attraction-detail', { id: item.id })}
+    >
       <Image source={{ uri: item.image }} style={styles.nearbyImage} />
       <View style={styles.nearbyOverlay}>
+        <TouchableOpacity 
+          style={styles.checkinQuickBtn}
+          onPress={() => handleCheckin(item.id, item.name, item.lat, item.lng)}
+        >
+          <Ionicons name="checkmark" size={14} color="#FFF" />
+        </TouchableOpacity>
         <View style={[styles.distanceBadge, { backgroundColor: 'rgba(0,0,0,0.6)' }]}>
           <Ionicons name="navigate" size={12} color="#FFFFFF" />
           <Text style={styles.distanceText}>{item.distance}</Text>
@@ -242,7 +286,7 @@ export default function CheckinScreen() {
       )}
 
       {/* Check-in Button */}
-      <TouchableOpacity style={styles.checkinBtn} onPress={handleCheckin}>
+      <TouchableOpacity style={styles.checkinBtn} onPress={handleCheckinPress}>
         <LinearGradient
           colors={[accent as string, `${accent}CC`]}
           style={styles.checkinGradient}
@@ -392,6 +436,16 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 8,
     right: 8,
+    flexDirection: 'row',
+    gap: 4,
+  },
+  checkinQuickBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#6C63FF',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   distanceBadge: {
     flexDirection: 'row',

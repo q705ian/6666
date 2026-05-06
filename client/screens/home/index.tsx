@@ -92,7 +92,7 @@ export default function HomeScreen() {
   };
 
   const handleAttractionPress = (id: string) => {
-    router.push('/chat');
+    router.push('/attraction-detail', { id });
   };
 
   return (
@@ -163,7 +163,7 @@ export default function HomeScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: textPrimary }]}>热门景点</Text>
-            <TouchableOpacity onPress={() => router.push('/chat')}>
+            <TouchableOpacity onPress={() => router.push('/checkin')}>
               <Text style={[styles.sectionMore, { color: accent }]}>查看更多</Text>
             </TouchableOpacity>
           </View>
@@ -243,7 +243,10 @@ export default function HomeScreen() {
             <Text style={[styles.sectionTitle, { color: textPrimary }]}>精选路线</Text>
           </View>
           <View style={styles.routeList}>
-            <TouchableOpacity style={styles.routeCard}>
+            <TouchableOpacity 
+              style={styles.routeCard}
+              onPress={() => router.push('/chat')}
+            >
               <View style={[styles.routeImage, { backgroundColor: `${accent}20` }]}>
                 <Ionicons name="sunny" size={32} color={accent as string} />
               </View>
@@ -262,7 +265,10 @@ export default function HomeScreen() {
                 </View>
               </View>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.routeCard}>
+            <TouchableOpacity 
+              style={styles.routeCard}
+              onPress={() => router.push('/chat')}
+            >
               <View style={[styles.routeImage, { backgroundColor: '#00B89415' }]}>
                 <Ionicons name="moon" size={32} color="#00B894" />
               </View>

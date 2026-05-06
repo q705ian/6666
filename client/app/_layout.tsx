@@ -24,6 +24,8 @@ export default function RootLayout() {
       >
         <Stack.Screen name="(tabs)" options={{ title: "" }} />
         <Stack.Screen name="chat" options={{ title: "AI 导游", headerShown: true, headerTitle: "羊城导游" }} />
+        <Stack.Screen name="attraction-detail" options={{ title: "景点详情", headerShown: true, headerTitle: "景点详情" }} />
+        <Stack.Screen name="checkin-action" options={{ title: "打卡", headerShown: false }} />
       </Stack>
       <Toast />
     </Provider>
