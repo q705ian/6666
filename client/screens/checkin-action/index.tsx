@@ -153,11 +153,11 @@ export default function CheckinActionScreen() {
   };
 
   const images: Record<string, string> = {
-    gz_tower: 'https://coze-coding-project.tos.coze.site/coze_storage_7634004491666227210/image/generate_image_9a03a2bc-1e7e-4d3b-8dde-ebbeddf2d0e2.jpeg',
-    chen_clan: 'https://coze-coding-project.tos.coze.site/coze_storage_7634004491666227210/image/generate_image_55e2f59b-10fe-4494-9987-d0e356ced586.jpeg',
-    shamian: 'https://coze-coding-project.tos.coze.site/coze_storage_7634004491666227210/image/generate_image_956f9421-f5e8-452f-9a9b-c5e98f854b6b.jpeg',
-    baiyun_mountain: 'https://coze-coding-project.tos.coze.site/coze_storage_7634004491666227210/image/generate_image_aaec6d65-a46a-4966-8853-2683f903247f.jpeg',
-    beijing_road: 'https://coze-coding-project.tos.coze.site/coze_storage_7634004491666227210/image/generate_image_16c736b4-df93-4e77-b765-03337010cc44.jpeg',
+    gz_tower: 'https://coze-coding-project.tos.coze.site/coze_storage_7634004491666227210/image/generate_image_12618e46-93fa-4233-815c-4283c5c6eb5e.jpeg?sign=1809762590-aab807f870-0-3424e61b81b792b3bb81d91e04dab6e756c4045309f863b7e2e51100d0fb032d',
+    chen_clan: 'https://coze-coding-project.tos.coze.site/coze_storage_7634004491666227210/image/generate_image_3a9fe745-95bc-43e9-9cdd-8a6327f9e48c.jpeg?sign=1809762591-b4fc03e60f-0-5707a617615ba3a222786c6dbc362e9c657929faa5824db824d40d0c8e73c055',
+    shamian: 'https://coze-coding-project.tos.coze.site/coze_storage_7634004491666227210/image/generate_image_a26ac1c0-5d7b-4d0d-a2ad-57de1ba6192a.jpeg?sign=1809762589-632d886d54-0-8c103b4dc47a9f84caa67cd7cdf13b1f4e1a79574b963844f7ee6ae61041836f',
+    baiyun_mountain: 'https://coze-coding-project.tos.coze.site/coze_storage_7634004491666227210/image/generate_image_0eee4af4-29d8-4e4a-9c9b-5912f9b963ab.jpeg?sign=1809762590-87f3dcd8f7-0-6524cf726764e57396f48d35a4598195dfece79f81b08351013341e1f95f3209',
+    beijing_road: 'https://coze-coding-project.tos.coze.site/coze_storage_7634004491666227210/image/generate_image_1a0e3da5-6224-427c-9031-15fb1354631f.jpeg?sign=1809762591-2e8a50b791-0-3184026a384d622c5c184e0315db711f2d4e20cb22e9cceaf7a33dae7ad435f1',
   };
 
   return (
