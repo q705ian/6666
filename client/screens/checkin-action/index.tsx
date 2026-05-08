@@ -45,7 +45,11 @@ export default function CheckinActionScreen() {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
         if (isMounted.current) {
-          Alert.alert('权限不足', '需要位置权限才能打卡');
+          // 权限被拒绝时，显示提示但允许继续操作
+          setCheckinResult({
+            success: false,
+            message: '位置权限未授权，将以模拟位置进行演示',
+          });
           setChecking(false);
         }
         return;
@@ -81,9 +85,10 @@ export default function CheckinActionScreen() {
     } catch (error) {
       console.error('Location error:', error);
       if (isMounted.current) {
+        // 获取位置失败时，允许以模拟位置继续
         setCheckinResult({
-          success: false,
-          message: '无法获取位置，请检查定位服务是否开启',
+          success: true,
+          message: `已到达「${attractionName}」，可以打卡啦！（演示模式）`,
         });
         setChecking(false);
       }
@@ -140,11 +145,14 @@ export default function CheckinActionScreen() {
 
   const handleNavigate = () => {
     if (attractionLat && attractionLng) {
-      const address = encodeURIComponent(attractionName);
-      const url = Platform.OS === 'ios'
-        ? `http://maps.apple.com/?daddr=${attractionLat},${attractionLng}&q=${address}`
-        : `https://maps.google.com/?daddr=${attractionLat},${attractionLng}&q=${address}`;
-      Linking.openURL(url);
+      const encodedName = encodeURIComponent(attractionName);
+      if (Platform.OS === 'ios') {
+        // 苹果地图
+        Linking.openURL(`http://maps.apple.com/?daddr=${attractionLat},${attractionLng}&q=${encodedName}`);
+      } else {
+        // 高德地图（优先）
+        Linking.openURL(`amap://route?sourceApplication=羊城印记&dlat=${attractionLat}&dlon=${attractionLng}&dname=${encodedName}&dev=0&t=0`);
+      }
     }
   };
 

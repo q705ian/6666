@@ -118,13 +118,15 @@ export default function AttractionDetailScreen() {
   const handleNavigate = () => {
     if (!attraction) return;
     
-    const { lat, lng } = attraction;
-    const address = encodeURIComponent(`${attraction.name}`);
+    const { lat, lng, name } = attraction;
+    const encodedName = encodeURIComponent(name);
     
     if (Platform.OS === 'ios') {
-      Linking.openURL(`http://maps.apple.com/?daddr=${lat},${lng}&q=${address}`);
+      // 苹果地图
+      Linking.openURL(`http://maps.apple.com/?daddr=${lat},${lng}&q=${encodedName}`);
     } else {
-      Linking.openURL(`https://maps.google.com/?daddr=${lat},${lng}&q=${address}`);
+      // 高德地图（优先）
+      Linking.openURL(`amap://route?sourceApplication=羊城印记&dlat=${lat}&dlon=${lng}&dname=${encodedName}&dev=0&t=0`);
     }
   };
 
