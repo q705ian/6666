@@ -21,6 +21,7 @@ export default function CheckinActionScreen() {
   const [checking, setChecking] = useState(true);
   const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [checkinResult, setCheckinResult] = useState<{ success: boolean; distance?: number; message: string } | null>(null);
+  const [demoMode, setDemoMode] = useState(false);
 
   const attractionId = params.id || '';
   const attractionName = params.name || '景点';
@@ -45,9 +46,10 @@ export default function CheckinActionScreen() {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
         if (isMounted.current) {
-          // 权限被拒绝时，显示提示但允许继续操作
+          // 权限被拒绝时，允许演示模式继续
+          setDemoMode(true);
           setCheckinResult({
-            success: false,
+            success: true, // 演示模式下允许打卡
             message: '位置权限未授权，将以模拟位置进行演示',
           });
           setChecking(false);
@@ -127,8 +129,8 @@ export default function CheckinActionScreen() {
       
       if (response.ok) {
         Alert.alert(
-          '打卡成功！', 
-          `恭喜你成功打卡「${attractionName}」！\n\n获得积分：+50\n解锁成就：初探羊城`,
+          demoMode ? '演示打卡成功！' : '打卡成功！', 
+          `恭喜你${demoMode ? '演示' : ''}打卡「${attractionName}」！\n\n获得积分：+50\n解锁成就：初探羊城\n\n${demoMode ? '（演示模式：实际未在景点）' : ''}`,
           [
             { text: '查看成就', onPress: () => router.replace('/(tabs)/badges') },
             { text: '返回', onPress: () => router.back() },
@@ -274,17 +276,19 @@ export default function CheckinActionScreen() {
           <TouchableOpacity 
             style={[
               styles.checkinBtn,
-              { opacity: checkinResult?.success ? 1 : 0.5 }
+              { backgroundColor: demoMode ? '#FF9500' : '#6C63FF' }
             ]}
             onPress={handleCheckin}
-            disabled={!checkinResult?.success || loading}
+            disabled={loading}
           >
             {loading ? (
               <Text style={styles.checkinBtnText}>打卡中...</Text>
             ) : (
               <>
                 <Ionicons name="camera" size={20} color="#FFF" />
-                <Text style={styles.checkinBtnText}>确认打卡</Text>
+                <Text style={styles.checkinBtnText}>
+                  {demoMode ? '演示打卡' : '确认打卡'}
+                </Text>
               </>
             )}
           </TouchableOpacity>
