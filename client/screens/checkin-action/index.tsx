@@ -153,11 +153,11 @@ export default function CheckinActionScreen() {
   };
 
   const images: Record<string, string> = {
-    gz_tower: 'https://images.unsplash.com/photo-1560180474-e8563fd75bab?w=400',
-    chen_clan: 'https://images.unsplash.com/photo-1584551246679-0daf3d275d0f?w=400',
-    shamian: 'https://images.unsplash.com/photo-1599707367072-cd6ada2bc375?w=400',
-    baiyun_mountain: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400',
-    beijing_road: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400',
+    gz_tower: 'https://coze-coding-project.tos.coze.site/coze_storage_7634004491666227210/image/generate_image_9a03a2bc-1e7e-4d3b-8dde-ebbeddf2d0e2.jpeg',
+    chen_clan: 'https://coze-coding-project.tos.coze.site/coze_storage_7634004491666227210/image/generate_image_55e2f59b-10fe-4494-9987-d0e356ced586.jpeg',
+    shamian: 'https://coze-coding-project.tos.coze.site/coze_storage_7634004491666227210/image/generate_image_956f9421-f5e8-452f-9a9b-c5e98f854b6b.jpeg',
+    baiyun_mountain: 'https://coze-coding-project.tos.coze.site/coze_storage_7634004491666227210/image/generate_image_aaec6d65-a46a-4966-8853-2683f903247f.jpeg',
+    beijing_road: 'https://coze-coding-project.tos.coze.site/coze_storage_7634004491666227210/image/generate_image_16c736b4-df93-4e77-b765-03337010cc44.jpeg',
   };
 
   return (
@@ -171,7 +171,7 @@ export default function CheckinActionScreen() {
         {/* Attraction Card */}
         <View style={styles.attractionCard}>
           <Image 
-            source={{ uri: images[attractionId] || 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400' }} 
+            source={{ uri: images[attractionId] || 'https://coze-coding-project.tos.coze.site/coze_storage_7634004491666227210/image/generate_image_9a03a2bc-1e7e-4d3b-8dde-ebbeddf2d0e2.jpeg' }} 
             style={styles.attractionImage} 
           />
           <View style={styles.attractionInfo}>
