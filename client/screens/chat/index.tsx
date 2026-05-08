@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
-import { View, Text, ScrollView, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Image } from 'react-native';
+import { View, Text, ScrollView, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { Screen } from '@/components/Screen';
 import { useCSSVariable } from 'uniwind';
@@ -24,6 +25,7 @@ const QUICK_QUESTIONS = [
 
 export default function ChatScreen() {
   const router = useSafeRouter();
+  const insets = useSafeAreaInsets();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '0',
@@ -145,30 +147,20 @@ export default function ChatScreen() {
 
   return (
     <Screen>
+      {/* Header */}
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <Ionicons name="chevron-back" size={24} color={textPrimary} />
+        </TouchableOpacity>
+        <Text style={[styles.headerTitle, { color: textPrimary }]}>AI 导游</Text>
+        <View style={styles.placeholder} />
+      </View>
+      
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
-        {/* Header */}
-        <View style={[styles.header, { backgroundColor: surface }]}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="chevron-back" size={24} color={textPrimary} />
-          </TouchableOpacity>
-          <View style={styles.headerContent}>
-            <View style={[styles.avatar, { backgroundColor: `${accent}20` }]}>
-              <Ionicons name="location" size={20} color={accent as string} />
-            </View>
-            <View>
-              <Text style={[styles.headerTitle, { color: textPrimary }]}>羊城导游</Text>
-              <Text style={[styles.headerSubtitle, { color: textSecondary }]}>在线</Text>
-            </View>
-          </View>
-          <TouchableOpacity style={styles.moreBtn}>
-            <Ionicons name="ellipsis-vertical" size={20} color={textPrimary} />
-          </TouchableOpacity>
-        </View>
-
         {/* Messages */}
         <ScrollView
           ref={scrollViewRef}
@@ -289,42 +281,28 @@ export default function ChatScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0,0,0,0.06)',
   },
   backBtn: {
     padding: 4,
-  },
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 10,
+    width: 40,
   },
   headerTitle: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 17,
+    fontWeight: '600',
   },
-  headerSubtitle: {
-    fontSize: 11,
+  placeholder: {
+    width: 40,
   },
-  moreBtn: {
-    padding: 4,
+  container: {
+    flex: 1,
   },
   messagesContainer: {
     flex: 1,
