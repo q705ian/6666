@@ -143,16 +143,32 @@ export default function CheckinActionScreen() {
     setLoading(false);
   };
 
-  const handleNavigate = () => {
-    if (attractionLat && attractionLng) {
-      const encodedName = encodeURIComponent(attractionName);
+  const handleNavigate = async () => {
+    if (!attractionLat || !attractionLng) return;
+    
+    const encodedName = encodeURIComponent(attractionName);
+    const amapUrl = `amap://route?sourceApplication=羊城印记&dlat=${attractionLat}&dlon=${attractionLng}&dname=${encodedName}&dev=0&t=0`;
+    const appleUrl = `http://maps.apple.com/?daddr=${attractionLat},${attractionLng}&q=${encodedName}`;
+    const amapWebUrl = `https://uri.amap.com/navigation?to=${attractionLng},${attractionLat},${encodedName}&mode=car&callnative=0`;
+    
+    try {
       if (Platform.OS === 'ios') {
-        // 苹果地图
-        Linking.openURL(`http://maps.apple.com/?daddr=${attractionLat},${attractionLng}&q=${encodedName}`);
+        const canOpen = await Linking.canOpenURL(appleUrl);
+        if (canOpen) {
+          await Linking.openURL(appleUrl);
+        } else {
+          await Linking.openURL(amapWebUrl);
+        }
       } else {
-        // 高德地图（优先）
-        Linking.openURL(`amap://route?sourceApplication=羊城印记&dlat=${attractionLat}&dlon=${attractionLng}&dname=${encodedName}&dev=0&t=0`);
+        const canOpen = await Linking.canOpenURL(amapUrl);
+        if (canOpen) {
+          await Linking.openURL(amapUrl);
+        } else {
+          await Linking.openURL(amapWebUrl);
+        }
       }
+    } catch (error) {
+      await Linking.openURL(amapWebUrl);
     }
   };
 

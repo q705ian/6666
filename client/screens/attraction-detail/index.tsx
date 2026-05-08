@@ -115,18 +115,40 @@ export default function AttractionDetailScreen() {
     return null;
   }, [params.id]);
 
-  const handleNavigate = () => {
+  const handleNavigate = async () => {
     if (!attraction) return;
     
     const { lat, lng, name } = attraction;
     const encodedName = encodeURIComponent(name);
     
-    if (Platform.OS === 'ios') {
-      // 苹果地图
-      Linking.openURL(`http://maps.apple.com/?daddr=${lat},${lng}&q=${encodedName}`);
-    } else {
-      // 高德地图（优先）
-      Linking.openURL(`amap://route?sourceApplication=羊城印记&dlat=${lat}&dlon=${lng}&dname=${encodedName}&dev=0&t=0`);
+    // 优先使用高德地图App（移动端）
+    const amapUrl = `amap://route?sourceApplication=羊城印记&dlat=${lat}&dlon=${lng}&dname=${encodedName}&dev=0&t=0`;
+    const appleUrl = `http://maps.apple.com/?daddr=${lat},${lng}&q=${encodedName}`;
+    
+    // Web环境使用高德地图网页版
+    const amapWebUrl = `https://uri.amap.com/navigation?to=${lng},${lat},${encodedName}&mode=car&callnative=0`;
+    
+    try {
+      if (Platform.OS === 'ios') {
+        // iOS尝试打开苹果地图，失败则用网页版
+        const canOpen = await Linking.canOpenURL(appleUrl);
+        if (canOpen) {
+          await Linking.openURL(appleUrl);
+        } else {
+          await Linking.openURL(amapWebUrl);
+        }
+      } else {
+        // Android尝试打开高德App，失败则用网页版
+        const canOpen = await Linking.canOpenURL(amapUrl);
+        if (canOpen) {
+          await Linking.openURL(amapUrl);
+        } else {
+          await Linking.openURL(amapWebUrl);
+        }
+      }
+    } catch (error) {
+      // 所有方式都失败时，使用网页版高德地图
+      await Linking.openURL(amapWebUrl);
     }
   };
 
