@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, Linking, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Screen } from '@/components/Screen';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
 
@@ -101,6 +102,7 @@ const ATTRACTION_DETAILS: Record<string, Attraction> = {
 export default function AttractionDetailScreen() {
   const router = useSafeRouter();
   const params = useSafeSearchParams<{ id?: string }>();
+  const insets = useSafeAreaInsets();
   const [accent, textPrimary, textSecondary, surface] = useCSSVariable([
     '--color-accent',
     '--color-foreground',
@@ -168,7 +170,7 @@ export default function AttractionDetailScreen() {
 
   if (!attraction) {
     return (
-      <Screen>
+      <Screen safeAreaEdges={['left', 'right', 'bottom']}>
         <View style={styles.loadingContainer}>
           <Text style={[styles.loadingText, { color: textSecondary }]}>加载中...</Text>
         </View>
@@ -177,7 +179,7 @@ export default function AttractionDetailScreen() {
   }
 
   return (
-    <Screen>
+    <Screen safeAreaEdges={['left', 'right', 'bottom']}>
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Hero Image */}
         <View style={styles.heroContainer}>
@@ -301,6 +303,7 @@ const styles = StyleSheet.create({
   heroContainer: {
     height: 280,
     position: 'relative',
+    overflow: 'hidden',
   },
   heroImage: {
     width: '100%',
@@ -312,7 +315,7 @@ const styles = StyleSheet.create({
   },
   backBtn: {
     position: 'absolute',
-    top: 50,
+    top: 12,
     left: 16,
     width: 40,
     height: 40,
@@ -320,6 +323,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 10,
   },
   categoryBadge: {
     position: 'absolute',
