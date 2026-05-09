@@ -5,6 +5,7 @@ import { Screen } from '@/components/Screen';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
 import * as Location from 'expo-location';
 import * as Clipboard from 'expo-clipboard';
+import * as Sharing from 'expo-sharing';
 import ViewShot, { captureRef } from 'react-native-view-shot';
 
 const EXPO_PUBLIC_BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091';
@@ -44,6 +45,7 @@ export default function CheckinActionScreen() {
   const [demoMode, setDemoMode] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareSuccess, setShareSuccess] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
   const viewShotRef = useRef<any>(null);
 
   const attractionId = params.id || '';
@@ -164,24 +166,38 @@ export default function CheckinActionScreen() {
 
   const handleShare = async () => {
     try {
-      const shareText = `我在「${attractionName}」打卡成功！\n地址: ${address}\n日期: ${new Date().toLocaleDateString('zh-CN')}\n获得积分: +50\n\n#羊城印记 #${attractionName.replace(/ /g, '')} #广州旅游`;
+      setIsSharing(true);
       
-      try {
-        await Clipboard.setStringAsync(shareText);
+      // 截取海报图片
+      const uri = await captureRef(viewShotRef, {
+        format: 'png',
+        quality: 1,
+        result: 'tmpfile',
+      });
+      
+      // 检查是否支持分享
+      const isAvailable = await Sharing.isAvailableAsync();
+      
+      if (isAvailable) {
+        // 使用系统分享
+        await Sharing.shareAsync(uri, {
+          mimeType: 'image/png',
+          dialogTitle: '分享打卡海报',
+        });
+      } else {
+        // 不支持分享时，复制图片路径到剪贴板
+        await Clipboard.setStringAsync(uri);
         Alert.alert(
-          '分享成功',
-          '打卡信息已复制到剪贴板，可以去粘贴分享啦！',
+          '保存成功',
+          '海报已保存，请到相册查看并分享！',
           [{ text: '好的', style: 'default' }]
         );
-        return;
-      } catch (clipboardError) {
-        console.log('Clipboard error:', clipboardError);
       }
-      
-      Alert.alert('提示', '请截图分享您的打卡成果');
     } catch (error) {
       console.error('Share error:', error);
       Alert.alert('分享失败', '请稍后重试');
+    } finally {
+      setIsSharing(false);
     }
   };
 
