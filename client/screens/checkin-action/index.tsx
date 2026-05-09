@@ -111,6 +111,7 @@ export default function CheckinActionScreen() {
         setChecking(false);
       }
     } catch (error) {
+        console.log('Share error:', error);
       console.error('Location error:', error);
       if (isMounted.current) {
         setCheckinResult({
@@ -159,6 +160,7 @@ export default function CheckinActionScreen() {
         Alert.alert('打卡失败', data.message || '请稍后重试');
       }
     } catch (error) {
+        console.log('Share error:', error);
       Alert.alert('网络错误', '请检查网络连接后重试');
     }
     setLoading(false);
@@ -167,6 +169,8 @@ export default function CheckinActionScreen() {
   const handleShare = async () => {
     try {
       setIsSharing(true);
+      // 等待Modal完全渲染
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       // 截取海报图片
       const uri = await captureRef(viewShotRef, {
@@ -194,8 +198,21 @@ export default function CheckinActionScreen() {
         );
       }
     } catch (error) {
-      console.error('Share error:', error);
-      Alert.alert('分享失败', '请稍后重试');
+        console.log('Share error:', error);
+      // 图片分享失败，降级到复制打卡信息
+      const shareText = `我在【${attractionData.name}】打卡成功！
+
+位置：${attractionData.address || attractionData.district}
+日期：${new Date().toLocaleDateString('zh-CN')}
+获得：+50积分
+
+#羊城印记 #广州打卡 #探索广州`;
+      try {
+        await Clipboard.setStringAsync(shareText);
+        Alert.alert('已复制', '打卡信息已复制到剪贴板，可以粘贴分享啦！');
+      } catch {
+        Alert.alert('分享失败', '请稍后重试');
+      }
     } finally {
       setIsSharing(false);
     }
@@ -238,6 +255,7 @@ export default function CheckinActionScreen() {
         }
       }
     } catch (error) {
+        console.log('Share error:', error);
       await Linking.openURL(amapWebUrl);
     }
   };
