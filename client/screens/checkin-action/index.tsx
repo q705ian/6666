@@ -1,11 +1,28 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, Image, Linking, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Image, Linking, Platform, Modal, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen } from '@/components/Screen';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
 import * as Location from 'expo-location';
+import * as Sharing from 'expo-sharing';
+import ViewShot from 'react-native-view-shot';
+import * as FileSystem from 'expo-file-system';
 
 const EXPO_PUBLIC_BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091';
+
+// 景点信息数据
+const ATTRACTIONS_DATA: Record<string, {
+  name: string;
+  district: string;
+  description: string;
+  tags: string[];
+}> = {
+  gz_tower: { name: '广州塔', district: '海珠区', description: '中国第一高塔，昵称"小蛮腰"，珠江夜景璀璨夺目', tags: ['地标', '夜景', '观光'] },
+  chen_clan: { name: '陈家祠', district: '荔湾区', description: '岭南建筑艺术明珠，七绝工艺精妙绝伦', tags: ['岭南', '建筑', '文化'] },
+  shamian: { name: '沙面岛', district: '荔湾区', description: '广州最具异国情调的欧洲建筑群', tags: ['欧式', '历史', '漫步'] },
+  baiyun_mountain: { name: '白云山', district: '白云区', description: '南粤名山之首，羊城第一秀', tags: ['自然', '登山', '休闲'] },
+  beijing_road: { name: '北京路步行街', district: '越秀区', description: '千年商都核心，美食购物天堂', tags: ['美食', '购物', '夜市'] },
+};
 
 export default function CheckinActionScreen() {
   const router = useSafeRouter();
@@ -16,20 +33,24 @@ export default function CheckinActionScreen() {
     lng?: string;
   }>();
   const isMounted = useRef(true);
+  const viewShotRef = useRef<ViewShot>(null);
   
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
   const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [checkinResult, setCheckinResult] = useState<{ success: boolean; distance?: number; message: string } | null>(null);
   const [demoMode, setDemoMode] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareSuccess, setShareSuccess] = useState(false);
 
   const attractionId = params.id || '';
-  const attractionName = params.name || '景点';
+  const attractionName = params.name || ATTRACTIONS_DATA[attractionId]?.name || '景点';
+  const attractionData = ATTRACTIONS_DATA[attractionId] || { name: attractionName, district: '广州', description: '', tags: ['打卡'] };
   const attractionLat = parseFloat(params.lat || '0');
   const attractionLng = parseFloat(params.lng || '0');
 
   const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
-    const R = 6371000; // Earth radius in meters
+    const R = 6371000;
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLng = (lng2 - lng1) * Math.PI / 180;
     const a = Math.sin(dLat/2)**2 + 
@@ -46,10 +67,9 @@ export default function CheckinActionScreen() {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
         if (isMounted.current) {
-          // 权限被拒绝时，允许演示模式继续
           setDemoMode(true);
           setCheckinResult({
-            success: true, // 演示模式下允许打卡
+            success: true,
             message: '位置权限未授权，将以模拟位置进行演示',
           });
           setChecking(false);
@@ -66,7 +86,6 @@ export default function CheckinActionScreen() {
       };
       setCurrentLocation(newLocation);
       
-      // Calculate distance
       const distance = calculateDistance(
         location.coords.latitude,
         location.coords.longitude,
@@ -76,7 +95,7 @@ export default function CheckinActionScreen() {
       
       if (isMounted.current) {
         setCheckinResult({
-          success: distance <= 200, // Within 200 meters
+          success: distance <= 200,
           distance: Math.round(distance),
           message: distance <= 200 
             ? `太棒了！你距离${attractionName}只有${Math.round(distance)}米，可以打卡啦！` 
@@ -87,7 +106,6 @@ export default function CheckinActionScreen() {
     } catch (error) {
       console.error('Location error:', error);
       if (isMounted.current) {
-        // 获取位置失败时，允许以模拟位置继续
         setCheckinResult({
           success: true,
           message: `已到达「${attractionName}」，可以打卡啦！（演示模式）`,
@@ -128,14 +146,8 @@ export default function CheckinActionScreen() {
       const data = await response.json();
       
       if (response.ok) {
-        Alert.alert(
-          demoMode ? '演示打卡成功！' : '打卡成功！', 
-          `恭喜你${demoMode ? '演示' : ''}打卡「${attractionName}」！\n\n获得积分：+50\n解锁成就：初探羊城\n\n${demoMode ? '（演示模式：实际未在景点）' : ''}`,
-          [
-            { text: '查看成就', onPress: () => router.replace('/(tabs)/badges') },
-            { text: '返回', onPress: () => router.back() },
-          ]
-        );
+        // 显示精美的打卡成功弹窗
+        setShowShareModal(true);
       } else {
         Alert.alert('打卡失败', data.message || '请稍后重试');
       }
@@ -143,6 +155,40 @@ export default function CheckinActionScreen() {
       Alert.alert('网络错误', '请检查网络连接后重试');
     }
     setLoading(false);
+  };
+
+  const handleShare = async () => {
+    try {
+      if (viewShotRef.current?.capture) {
+        const uri = await viewShotRef.current.capture();
+        
+        const canShare = await Sharing.isAvailableAsync();
+        if (canShare) {
+          await Sharing.shareAsync(uri, {
+            mimeType: 'image/png',
+            dialogTitle: '分享我的打卡成果',
+          });
+          setShareSuccess(true);
+        } else {
+          Alert.alert('提示', '当前设备不支持分享功能');
+        }
+      }
+    } catch (error) {
+      console.error('Share error:', error);
+      Alert.alert('分享失败', '请稍后重试');
+    }
+  };
+
+  const handleCloseModal = () => {
+    setShowShareModal(false);
+    Alert.alert(
+      demoMode ? '演示打卡成功！' : '打卡成功！', 
+      `恭喜你${demoMode ? '演示' : ''}打卡「${attractionName}」！\n\n获得积分：+50\n解锁成就：初探羊城\n\n${demoMode ? '（演示模式：实际未在景点）' : ''}`,
+      [
+        { text: '查看成就', onPress: () => router.replace('/(tabs)/badges') },
+        { text: '返回打卡', onPress: () => router.back() },
+      ]
+    );
   };
 
   const handleNavigate = async () => {
@@ -176,6 +222,16 @@ export default function CheckinActionScreen() {
 
   const handleBack = () => {
     router.back();
+  };
+
+  const getCurrentDate = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    const day = now.getDate();
+    const hours = now.getHours().toString().padStart(2, '0');
+    const minutes = now.getMinutes().toString().padStart(2, '0');
+    return `${year}.${month}.${day} ${hours}:${minutes}`;
   };
 
   const images: Record<string, string> = {
@@ -293,6 +349,109 @@ export default function CheckinActionScreen() {
             )}
           </TouchableOpacity>
         </View>
+
+        {/* Share Success Modal */}
+        <Modal
+          visible={showShareModal}
+          transparent
+          animationType="fade"
+          onRequestClose={handleCloseModal}
+        >
+          <View style={styles.modalOverlay}>
+            <ScrollView contentContainerStyle={styles.modalContent} showsVerticalScrollIndicator={false}>
+              {/* 海报卡片 */}
+              <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 1 }}>
+                <View style={styles.posterCard}>
+                  {/* 顶部装饰条 */}
+                  <View style={styles.posterHeader}>
+                    <View style={styles.posterLogo}>
+                      <Text style={styles.posterLogoText}>羊城印记</Text>
+                    </View>
+                    <Text style={styles.posterSubtitle}>城市探索 · 发现广州之美</Text>
+                  </View>
+
+                  {/* 景点图片 */}
+                  <Image 
+                    source={{ uri: images[attractionId] || images.gz_tower }} 
+                    style={styles.posterImage}
+                    resizeMode="cover"
+                  />
+
+                  {/* 打卡成功标识 */}
+                  <View style={styles.checkinBadge}>
+                    <Ionicons name="checkmark-circle" size={20} color="#00B894" />
+                    <Text style={styles.checkinBadgeText}>打卡成功</Text>
+                  </View>
+
+                  {/* 景点信息 */}
+                  <View style={styles.posterInfo}>
+                    <Text style={styles.posterTitle}>{attractionData.name}</Text>
+                    <View style={styles.posterMeta}>
+                      <View style={styles.posterMetaItem}>
+                        <Ionicons name="location" size={14} color="#6C63FF" />
+                        <Text style={styles.posterMetaText}>{attractionData.district}</Text>
+                      </View>
+                      <View style={styles.posterMetaItem}>
+                        <Ionicons name="calendar" size={14} color="#6C63FF" />
+                        <Text style={styles.posterMetaText}>{getCurrentDate()}</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.posterDesc} numberOfLines={2}>{attractionData.description}</Text>
+                    
+                    {/* 标签 */}
+                    <View style={styles.posterTags}>
+                      {attractionData.tags.map((tag, index) => (
+                        <View key={index} style={styles.posterTag}>
+                          <Text style={styles.posterTagText}>#{tag}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+
+                  {/* 底部装饰 */}
+                  <View style={styles.posterFooter}>
+                    <View style={styles.posterDivider} />
+                    <View style={styles.posterStats}>
+                      <View style={styles.posterStatItem}>
+                        <Text style={styles.posterStatValue}>+50</Text>
+                        <Text style={styles.posterStatLabel}>积分</Text>
+                      </View>
+                      <View style={styles.posterStatDivider} />
+                      <View style={styles.posterStatItem}>
+                        <Text style={styles.posterStatValue}>1</Text>
+                        <Text style={styles.posterStatLabel}>打卡</Text>
+                      </View>
+                      <View style={styles.posterStatDivider} />
+                      <View style={styles.posterStatItem}>
+                        <Text style={styles.posterStatValue}>初探</Text>
+                        <Text style={styles.posterStatLabel}>成就</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.posterBrand}>羊城印记 · 记录你的广州故事</Text>
+                  </View>
+                </View>
+              </ViewShot>
+
+              {/* 操作按钮 */}
+              <View style={styles.shareActions}>
+                <TouchableOpacity 
+                  style={styles.shareBtn}
+                  onPress={handleShare}
+                >
+                  <Ionicons name="share-social" size={22} color="#FFF" />
+                  <Text style={styles.shareBtnText}>分享海报</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={styles.closeBtn}
+                  onPress={handleCloseModal}
+                >
+                  <Text style={styles.closeBtnText}>完成</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </Modal>
       </View>
     </Screen>
   );
@@ -459,5 +618,191 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#FFF',
+  },
+  // Modal 样式
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  posterCard: {
+    width: 300,
+    backgroundColor: '#FFF',
+    borderRadius: 24,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  posterHeader: {
+    backgroundColor: '#6C63FF',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  posterLogo: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  posterLogoText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  posterSubtitle: {
+    color: 'rgba(255,255,255,0.8)',
+    fontSize: 11,
+  },
+  posterImage: {
+    width: '100%',
+    height: 160,
+    backgroundColor: '#E0E0E0',
+  },
+  checkinBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#00B894',
+    paddingVertical: 8,
+    marginHorizontal: 20,
+    marginTop: -20,
+    borderRadius: 20,
+    gap: 6,
+    shadowColor: '#00B894',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  checkinBadgeText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  posterInfo: {
+    padding: 20,
+  },
+  posterTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#333',
+    marginBottom: 8,
+  },
+  posterMeta: {
+    flexDirection: 'row',
+    gap: 16,
+    marginBottom: 12,
+  },
+  posterMetaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  posterMetaText: {
+    fontSize: 12,
+    color: '#6C63FF',
+    fontWeight: '500',
+  },
+  posterDesc: {
+    fontSize: 13,
+    color: '#666',
+    lineHeight: 20,
+    marginBottom: 12,
+  },
+  posterTags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  posterTag: {
+    backgroundColor: '#6C63FF15',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
+  posterTagText: {
+    fontSize: 11,
+    color: '#6C63FF',
+    fontWeight: '600',
+  },
+  posterFooter: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  posterDivider: {
+    height: 1,
+    backgroundColor: '#EEE',
+    marginBottom: 16,
+  },
+  posterStats: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 20,
+  },
+  posterStatItem: {
+    alignItems: 'center',
+  },
+  posterStatValue: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#6C63FF',
+  },
+  posterStatLabel: {
+    fontSize: 11,
+    color: '#999',
+    marginTop: 2,
+  },
+  posterStatDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: '#EEE',
+  },
+  posterBrand: {
+    fontSize: 11,
+    color: '#CCC',
+    textAlign: 'center',
+  },
+  shareActions: {
+    width: 300,
+    marginTop: 24,
+    gap: 12,
+  },
+  shareBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#6C63FF',
+    paddingVertical: 16,
+    borderRadius: 16,
+    gap: 8,
+  },
+  shareBtnText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFF',
+  },
+  closeBtn: {
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderRadius: 16,
+    backgroundColor: '#F5F5F5',
+  },
+  closeBtnText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#666',
   },
 });
