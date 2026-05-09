@@ -4,24 +4,27 @@ import { Ionicons } from '@expo/vector-icons';
 import { Screen } from '@/components/Screen';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
 import * as Location from 'expo-location';
-import * as Sharing from 'expo-sharing';
-import ViewShot from 'react-native-view-shot';
-import * as FileSystem from 'expo-file-system';
+import * as Clipboard from 'expo-clipboard';
+import ViewShot, { captureRef } from 'react-native-view-shot';
 
 const EXPO_PUBLIC_BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091';
 
 // 景点信息数据
 const ATTRACTIONS_DATA: Record<string, {
+  id: string;
+  image: string;
+  address: string;
+  open_time: string;
   name: string;
   district: string;
   description: string;
   tags: string[];
 }> = {
-  gz_tower: { name: '广州塔', district: '海珠区', description: '中国第一高塔，昵称"小蛮腰"，珠江夜景璀璨夺目', tags: ['地标', '夜景', '观光'] },
-  chen_clan: { name: '陈家祠', district: '荔湾区', description: '岭南建筑艺术明珠，七绝工艺精妙绝伦', tags: ['岭南', '建筑', '文化'] },
-  shamian: { name: '沙面岛', district: '荔湾区', description: '广州最具异国情调的欧洲建筑群', tags: ['欧式', '历史', '漫步'] },
-  baiyun_mountain: { name: '白云山', district: '白云区', description: '南粤名山之首，羊城第一秀', tags: ['自然', '登山', '休闲'] },
-  beijing_road: { name: '北京路步行街', district: '越秀区', description: '千年商都核心，美食购物天堂', tags: ['美食', '购物', '夜市'] },
+  gz_tower: { id: 'gz_tower', name: '广州塔', image: '', address: '广州市海珠区阅江西路222号', open_time: '09:30-22:30', district: '海珠区', description: '中国第一高塔，昵称"小蛮腰"，珠江夜景璀璨夺目', tags: ['地标', '夜景', '观光'] },
+  chen_clan: { id: 'chen_clan', name: '陈家祠', image: '', address: '广州市荔湾区中山七路恩龙里34号', open_time: '09:00-17:30', district: '荔湾区', description: '岭南建筑艺术明珠，七绝工艺精妙绝伦', tags: ['岭南', '建筑', '文化'] },
+  shamian: { id: 'shamian', name: '沙面岛', image: '', address: '广州市荔湾区沙面北街', open_time: '全天', district: '荔湾区', description: '广州最具异国情调的欧洲建筑群', tags: ['欧式', '历史', '漫步'] },
+  baiyun_mountain: { id: 'baiyun_mountain', name: '白云山', image: '', address: '广州市白云区广园中路801号', open_time: '06:00-22:00', district: '白云区', description: '南粤名山之首，羊城第一秀', tags: ['自然', '登山', '休闲'] },
+  beijing_road: { id: 'beijing_road', name: '北京路步行街', image: '', address: '广州市越秀区北京路', open_time: '全天', district: '越秀区', description: '千年商都核心，美食购物天堂', tags: ['美食', '购物', '夜市'] },
 };
 
 export default function CheckinActionScreen() {
@@ -33,8 +36,7 @@ export default function CheckinActionScreen() {
     lng?: string;
   }>();
   const isMounted = useRef(true);
-  const viewShotRef = useRef<ViewShot>(null);
-  
+
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
   const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null);
@@ -42,10 +44,13 @@ export default function CheckinActionScreen() {
   const [demoMode, setDemoMode] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareSuccess, setShareSuccess] = useState(false);
+  const viewShotRef = useRef<any>(null);
 
   const attractionId = params.id || '';
   const attractionName = params.name || ATTRACTIONS_DATA[attractionId]?.name || '景点';
-  const attractionData = ATTRACTIONS_DATA[attractionId] || { name: attractionName, district: '广州', description: '', tags: ['打卡'] };
+  const defaultAttraction = { id: 'custom', name: attractionName, district: '广州', address: '', open_time: '', description: '', image: '', tags: ['打卡'] };
+  const attractionData = ATTRACTIONS_DATA[attractionId] || defaultAttraction;
+        const address = attractionData.address || ATTRACTIONS_DATA[attractionId]?.open_time?.replace(/\d{2}:\d{2}-\d{2}:\d{2}/, '') || '广州市';
   const attractionLat = parseFloat(params.lat || '0');
   const attractionLng = parseFloat(params.lng || '0');
 
@@ -159,20 +164,21 @@ export default function CheckinActionScreen() {
 
   const handleShare = async () => {
     try {
-      if (viewShotRef.current?.capture) {
-        const uri = await viewShotRef.current.capture();
-        
-        const canShare = await Sharing.isAvailableAsync();
-        if (canShare) {
-          await Sharing.shareAsync(uri, {
-            mimeType: 'image/png',
-            dialogTitle: '分享我的打卡成果',
-          });
-          setShareSuccess(true);
-        } else {
-          Alert.alert('提示', '当前设备不支持分享功能');
-        }
+      const shareText = `我在「${attractionName}」打卡成功！\n地址: ${address}\n日期: ${new Date().toLocaleDateString('zh-CN')}\n获得积分: +50\n\n#羊城印记 #${attractionName.replace(/ /g, '')} #广州旅游`;
+      
+      try {
+        await Clipboard.setStringAsync(shareText);
+        Alert.alert(
+          '分享成功',
+          '打卡信息已复制到剪贴板，可以去粘贴分享啦！',
+          [{ text: '好的', style: 'default' }]
+        );
+        return;
+      } catch (clipboardError) {
+        console.log('Clipboard error:', clipboardError);
       }
+      
+      Alert.alert('提示', '请截图分享您的打卡成果');
     } catch (error) {
       console.error('Share error:', error);
       Alert.alert('分享失败', '请稍后重试');
