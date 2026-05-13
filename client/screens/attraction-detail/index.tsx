@@ -4,100 +4,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Screen } from '@/components/Screen';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
-
-interface Attraction {
-  id: string;
-  name: string;
-  district: string;
-  category: string;
-  image: string;
-  rating: number;
-  description: string;
-  tags: string[];
-  open_time: string;
-  ticket: string;
-  story: string;
-  lat: number;
-  lng: number;
-}
-
-const ATTRACTION_DETAILS: Record<string, Attraction> = {
-  gz_tower: {
-    id: 'gz_tower',
-    name: '广州塔',
-    district: '海珠区',
-    category: '现代',
-    image: 'https://coze-coding-project.tos.coze.site/coze_storage_7634004491666227210/image/generate_image_12618e46-93fa-4233-815c-4283c5c6eb5e.jpeg?sign=1809762590-aab807f870-0-3424e61b81b792b3bb81d91e04dab6e756c4045309f863b7e2e51100d0fb032d',
-    rating: 4.8,
-    description: '中国第一高塔，昵称"小蛮腰"，高600米，是广州地标建筑。夜晚灯光秀更是广州名片。',
-    tags: ['地标', '夜景', '观光', '摄影'],
-    open_time: '09:30-22:30',
-    ticket: '150元起',
-    story: '广州塔于2009年建成，是世界第三高塔。独特的设计灵感来源于女性的腰部曲线，塔身扭转形成"纤纤细腰"的视觉效果。',
-    lat: 23.1065,
-    lng: 113.3245,
-  },
-  chen_clan: {
-    id: 'chen_clan',
-    name: '陈家祠',
-    district: '荔湾区',
-    category: '岭南',
-    image: 'https://coze-coding-project.tos.coze.site/coze_storage_7634004491666227210/image/generate_image_3a9fe745-95bc-43e9-9cdd-8a6327f9e48c.jpeg?sign=1809762591-b4fc03e60f-0-5707a617615ba3a222786c6dbc362e9c657929faa5824db824d40d0c8e73c055',
-    rating: 4.9,
-    description: '广东现存规模最大、保存最完整的传统岭南祠堂式建筑，集岭南建筑"七绝"工艺于一身。',
-    tags: ['古建筑', '博物馆', '文化', '摄影'],
-    open_time: '09:00-17:30',
-    ticket: '10元',
-    story: '陈家祠建于清光绪年间，被誉为"岭南建筑艺术明珠"。木雕、石雕、砖雕、陶塑、灰塑、彩绘、铜铁铸，七绝工艺令人叹为观止。',
-    lat: 23.1258,
-    lng: 113.2436,
-  },
-  shamian: {
-    id: 'shamian',
-    name: '沙面岛',
-    district: '荔湾区',
-    category: '历史',
-    image: 'https://coze-coding-project.tos.coze.site/coze_storage_7634004491666227210/image/generate_image_a26ac1c0-5d7b-4d0d-a2ad-57de1ba6192a.jpeg?sign=1809762589-632d886d54-0-8c103b4dc47a9f84caa67cd7cdf13b1f4e1a79574b963844f7ee6ae61041836f',
-    rating: 4.7,
-    description: '广州最具异国情调的欧洲建筑群，曾是英法租界，150多座欧洲风格建筑汇聚于此。',
-    tags: ['欧式建筑', '摄影', '漫步', '历史'],
-    open_time: '全天开放',
-    ticket: '免费',
-    story: '沙面岛面积约0.3平方公里，有新巴洛克式、哥特式、券廊式等风格建筑。岛上绿树成荫，是广州最浪漫的街区之一。',
-    lat: 23.1097,
-    lng: 113.2389,
-  },
-  baiyun_mountain: {
-    id: 'baiyun_mountain',
-    name: '白云山',
-    district: '白云区',
-    category: '自然',
-    image: 'https://coze-coding-project.tos.coze.site/coze_storage_7634004491666227210/image/generate_image_0eee4af4-29d8-4e4a-9c9b-5912f9b963ab.jpeg?sign=1809762590-87f3dcd8f7-0-6524cf726764e57396f48d35a4598195dfece79f81b08351013341e1f95f3209',
-    rating: 4.6,
-    description: '南粤名山之一，自古有"羊城第一秀"之称，是广州市的"市肺"。',
-    tags: ['登山', '自然风光', '休闲', '吸氧'],
-    open_time: '06:00-22:00',
-    ticket: '5元（进山费）',
-    story: '白云山由30多座山峰组成，主峰摩星岭海拔382米，可俯瞰广州全景。山中有能仁寺、鸣春谷等古迹。',
-    lat: 23.1824,
-    lng: 113.2988,
-  },
-  beijing_road: {
-    id: 'beijing_road',
-    name: '北京路步行街',
-    district: '越秀区',
-    category: '美食',
-    image: 'https://coze-coding-project.tos.coze.site/coze_storage_7634004491666227210/image/generate_image_1a0e3da5-6224-427c-9031-15fb1354631f.jpeg?sign=1809762591-2e8a50b791-0-3184026a384d622c5c184e0315db711f2d4e20cb22e9cceaf7a33dae7ad435f1',
-    rating: 4.5,
-    description: '广州最繁华的商业步行街，千年古道遗址所在地，集购物、美食、娱乐于一体。',
-    tags: ['购物', '美食', '历史遗址', '夜市'],
-    open_time: '全天开放',
-    ticket: '免费',
-    story: '北京路是广州城建之始所在地，地下埋藏着唐、宋、元、明、清五朝路面遗址，见证了广州两千多年的历史变迁。',
-    lat: 23.1249,
-    lng: 113.2644,
-  },
-};
+import { useCSSVariable } from 'uniwind';
+import { ATTRACTIONS } from '@/constants/attractions';
+import type { Attraction } from '@/types';
 
 export default function AttractionDetailScreen() {
   const router = useSafeRouter();
@@ -110,11 +19,11 @@ export default function AttractionDetailScreen() {
     '--color-surface',
   ]) as string[];
 
-  const attraction = useMemo(() => {
-    if (params.id && ATTRACTION_DETAILS[params.id]) {
-      return ATTRACTION_DETAILS[params.id];
+  const attraction = useMemo<Attraction | undefined>(() => {
+    if (params.id) {
+      return ATTRACTIONS.find(a => a.id === params.id);
     }
-    return null;
+    return undefined;
   }, [params.id]);
 
   const handleNavigate = async () => {
@@ -172,7 +81,7 @@ export default function AttractionDetailScreen() {
     return (
       <Screen safeAreaEdges={['left', 'right', 'bottom']}>
         <View style={styles.loadingContainer}>
-          <Text style={[styles.loadingText, { color: textSecondary }]}>加载中...</Text>
+          <Text style={[styles.loadingText, { color: textSecondary }]}>景点未找到</Text>
         </View>
       </Screen>
     );
@@ -249,44 +158,20 @@ export default function AttractionDetailScreen() {
               <Text style={[styles.storyText, { color: textSecondary }]}>{attraction.story}</Text>
             </View>
           </View>
-
-          {/* Fun Facts */}
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: textPrimary }]}>趣味知识</Text>
-            <View style={styles.factCard}>
-              <View style={styles.factItem}>
-                <View style={[styles.factDot, { backgroundColor: accent as string }]} />
-                <Text style={[styles.factText, { color: textSecondary }]}>
-                  {attraction.id === 'gz_tower' && '广州塔在世界高塔中排名第三，仅次于迪拜哈利法塔和东京晴空塔'}
-                  {attraction.id === 'chen_clan' && '陈家祠屋顶的陶塑脊饰是岭南最精美的清代瓷塑艺术品'}
-                  {attraction.id === 'shamian' && '沙面岛上最古老的建筑是法国传教士建于1861年的露德圣母堂'}
-                  {attraction.id === 'baiyun_mountain' && '白云山每年接待游客超过1500万人次，是广州最受欢迎的景区'}
-                  {attraction.id === 'beijing_road' && '北京路地下的千年古道遗址层层叠压，形成独特的"历史三明治"'}
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Action Buttons */}
-          <View style={styles.actionContainer}>
-            <TouchableOpacity 
-              style={[styles.actionBtn, styles.navigateBtn]}
-              onPress={handleNavigate}
-            >
-              <Ionicons name="navigate" size={20} color="#FFF" />
-              <Text style={styles.navigateBtnText}>导航前往</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={[styles.actionBtn, styles.checkinBtn, { backgroundColor: accent as string }]}
-              onPress={handleCheckin}
-            >
-              <Ionicons name="checkmark-circle" size={20} color="#FFF" />
-              <Text style={styles.checkinBtnText}>立即打卡</Text>
-            </TouchableOpacity>
-          </View>
         </View>
       </ScrollView>
+
+      {/* Bottom Action Bar */}
+      <View style={[styles.actionBar, { backgroundColor: surface }]}>
+        <TouchableOpacity style={styles.actionBtnSecondary} onPress={handleNavigate}>
+          <Ionicons name="navigate" size={22} color={accent as string} />
+          <Text style={[styles.actionBtnSecondaryText, { color: accent }]}>导航前往</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.actionBtnPrimary, { backgroundColor: accent }]} onPress={handleCheckin}>
+          <Ionicons name="camera" size={22} color="#FFF" />
+          <Text style={styles.actionBtnPrimaryText}>立即打卡</Text>
+        </TouchableOpacity>
+      </View>
     </Screen>
   );
 }
@@ -303,19 +188,23 @@ const styles = StyleSheet.create({
   heroContainer: {
     height: 280,
     position: 'relative',
-    overflow: 'hidden',
   },
   heroImage: {
     width: '100%',
     height: '100%',
+    resizeMode: 'cover',
   },
   heroOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.2)',
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 100,
+    backgroundColor: 'rgba(0,0,0,0.3)',
   },
   backBtn: {
     position: 'absolute',
-    top: 12,
+    top: 50,
     left: 16,
     width: 40,
     height: 40,
@@ -323,28 +212,24 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 10,
   },
   categoryBadge: {
     position: 'absolute',
     bottom: 16,
-    left: 16,
-    backgroundColor: 'rgba(255,255,255,0.95)',
+    right: 16,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderRadius: 16,
   },
   categoryText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#6C63FF',
+    color: '#333',
   },
   content: {
-    padding: 20,
-    marginTop: -20,
-    backgroundColor: '#F8F9FA',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    padding: 16,
+    paddingBottom: 100,
   },
   titleSection: {
     marginBottom: 16,
@@ -357,35 +242,34 @@ const styles = StyleSheet.create({
   ratingRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
   },
   rating: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
-    marginLeft: 4,
-    marginRight: 12,
   },
   districtBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 10,
+    borderRadius: 12,
+    gap: 4,
   },
   districtText: {
     fontSize: 12,
     fontWeight: '600',
-    marginLeft: 4,
   },
   tagsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginBottom: 20,
     gap: 8,
+    marginBottom: 20,
   },
   tag: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 12,
+    borderRadius: 14,
   },
   tagText: {
     fontSize: 12,
@@ -394,7 +278,7 @@ const styles = StyleSheet.create({
   infoGrid: {
     flexDirection: 'row',
     gap: 12,
-    marginBottom: 24,
+    marginBottom: 20,
   },
   infoCard: {
     flex: 1,
@@ -409,95 +293,81 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   infoLabel: {
-    fontSize: 12,
+    fontSize: 11,
     marginTop: 8,
-    marginBottom: 4,
   },
   infoValue: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
+    marginTop: 4,
   },
   section: {
-    marginBottom: 24,
+    marginBottom: 20,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   description: {
-    fontSize: 15,
-    lineHeight: 24,
+    fontSize: 14,
+    lineHeight: 22,
   },
   storyCard: {
     flexDirection: 'row',
     padding: 16,
     borderRadius: 16,
+    gap: 12,
   },
   storyIcon: {
-    marginRight: 12,
-    marginTop: 2,
+    flexShrink: 0,
   },
   storyText: {
     flex: 1,
-    fontSize: 14,
-    lineHeight: 22,
+    fontSize: 13,
+    lineHeight: 20,
   },
-  factCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+  actionBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
     padding: 16,
+    paddingBottom: 24,
+    gap: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
-    elevation: 2,
+    elevation: 4,
   },
-  factItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  factDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginTop: 6,
-    marginRight: 12,
-  },
-  factText: {
-    flex: 1,
-    fontSize: 14,
-    lineHeight: 22,
-  },
-  actionContainer: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 8,
-    marginBottom: 40,
-  },
-  actionBtn: {
+  actionBtnSecondary: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 14,
-    borderRadius: 16,
-    gap: 8,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    gap: 6,
   },
-  navigateBtn: {
-    backgroundColor: '#00B894',
-  },
-  navigateBtnText: {
-    color: '#FFF',
+  actionBtnSecondaryText: {
     fontSize: 15,
     fontWeight: '700',
   },
-  checkinBtn: {},
-  checkinBtnText: {
+  actionBtnPrimary: {
+    flex: 1.5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 14,
+    gap: 6,
+  },
+  actionBtnPrimaryText: {
     color: '#FFF',
     fontSize: 15,
     fontWeight: '700',
   },
 });
-
-import { useCSSVariable } from 'uniwind';

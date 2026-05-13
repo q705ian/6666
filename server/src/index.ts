@@ -1,238 +1,133 @@
-import express from "express";
+import express, { type Request, type Response, type NextFunction } from "express";
 import cors from "cors";
+import { z } from "zod";
 
 const app = express();
 const port = process.env.PORT || 9091;
 
-// Middleware
+// ============================================
+// MIDDLEWARE
+// ============================================
+
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// Health check
-app.get('/api/v1/health', (req, res) => {
-  console.log('Health check success');
-  res.status(200).json({ status: 'ok' });
+// Request logging middleware
+app.use((req: Request, _res: Response, next: NextFunction) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+  next();
 });
 
-// AI Chat endpoint (羊城印记智能导游)
-app.post('/api/v1/chat', async (req, res) => {
-  try {
-    const { message, user_id } = req.body;
+// ============================================
+// VALIDATION SCHEMAS (Zod)
+// ============================================
 
-    if (!message) {
-      return res.status(400).json({ error: 'Message is required' });
-    }
-
-    // 检查是否有扣子API Token
-    const cozeToken = process.env.COZE_API_TOKEN;
-    const cozeBotId = process.env.COZE_BOT_ID;
-
-    if (cozeToken && cozeBotId) {
-      // 调用扣子API
-      try {
-        const response = await fetch('https://api.coze.cn/open_api/v2/chat', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${cozeToken}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            bot_id: cozeBotId,
-            user: user_id || 'anonymous',
-            query: message,
-            stream: false,
-          }),
-        });
-
-        const data = await response.json() as { messages?: Array<{ role: string; type?: string; content?: string }> };
-
-        if (data.messages && data.messages.length > 0) {
-          const reply = data.messages.find((m) => m.role === 'assistant' && m.type === 'answer');
-          return res.json({
-            reply: reply?.content || '抱歉，我没有收到有效的回复。',
-            success: true,
-          });
-        }
-      } catch (apiError) {
-        console.error('Coze API error:', apiError);
-        // 降级到预设回复
-      }
-    }
-
-    // 预设回复（当没有扣子Token时）
-    const reply = generateFallbackResponse(message);
-    res.json({
-      reply,
-      success: true,
-    });
-  } catch (error) {
-    console.error('Chat error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
+const chatSchema = z.object({
+  message: z.string().min(1, "Message is required"),
+  user_id: z.string().optional(),
 });
 
-// 景点信息查询
-app.get('/api/v1/attractions', (req, res) => {
-  const attractions = [
-    {
-      id: 'gz_tower',
-      name: '广州塔',
-      district: '海珠区',
-      category: '现代',
-      lat: 23.1065,
-      lng: 113.3245,
-      open_time: '09:30-22:30',
-      ticket: '150元起',
-      description: '中国第一高塔，昵称"小蛮腰"，高600米',
-      tags: ['地标', '夜景', '观光'],
-      checkin_radius: 150,
-      story: '广州塔于2009年建成，是世界第三高塔。独特的设计灵感来源于女性的腰部曲线。',
-    },
-    {
-      id: 'chen_clan',
-      name: '陈家祠',
-      district: '荔湾区',
-      category: '岭南',
-      lat: 23.1258,
-      lng: 113.2436,
-      open_time: '09:00-17:30',
-      ticket: '10元',
-      description: '广东现存规模最大、保存最完整的传统岭南祠堂式建筑',
-      tags: ['古建筑', '博物馆', '文化'],
-      checkin_radius: 100,
-      story: '陈家祠建于清光绪年间，集岭南建筑"七绝"工艺于一身。',
-    },
-    {
-      id: 'shamian',
-      name: '沙面岛',
-      district: '荔湾区',
-      category: '历史',
-      lat: 23.1097,
-      lng: 113.2389,
-      open_time: '全天开放',
-      ticket: '免费',
-      description: '广州最具异国情调的欧洲建筑群，曾是英法租界',
-      tags: ['欧式建筑', '摄影', '历史'],
-      checkin_radius: 100,
-      story: '沙面岛有150多座欧洲风格建筑，是广州最浪漫的街区之一。',
-    },
-    {
-      id: 'baiyun_mountain',
-      name: '白云山',
-      district: '白云区',
-      category: '自然',
-      lat: 23.1824,
-      lng: 113.2988,
-      open_time: '06:00-22:00',
-      ticket: '5元',
-      description: '南粤名山之一，自古有"羊城第一秀"之称',
-      tags: ['登山', '自然', '休闲'],
-      checkin_radius: 200,
-      story: '白云山是广州市的"市肺"，由30多座山峰组成，主峰摩星岭海拔382米。',
-    },
-    {
-      id: 'beijing_road',
-      name: '北京路步行街',
-      district: '越秀区',
-      category: '美食',
-      lat: 23.1249,
-      lng: 113.2644,
-      open_time: '全天开放',
-      ticket: '免费',
-      description: '广州最繁华的商业步行街，千年古道遗址所在地',
-      tags: ['购物', '美食', '历史'],
-      checkin_radius: 150,
-      story: '北京路是广州城建之始所在地，地下埋藏着唐、宋、元、明、清五朝路面遗址。',
-    },
-  ];
-
-  res.json({ attractions });
+const checkinSchema = z.object({
+  user_id: z.string().min(1, "User ID is required"),
+  attraction_id: z.string().min(1, "Attraction ID is required"),
+  lat: z.number().min(-90).max(90),
+  lng: z.number().min(-180).max(180),
 });
 
-// 打卡验证
-app.post('/api/v1/checkin', (req, res) => {
-  const { user_id, attraction_id, lat, lng } = req.body;
+// ============================================
+// ATTRACTIONS DATA (统一数据源)
+// ============================================
 
-  if (!user_id || !attraction_id || lat === undefined || lng === undefined) {
-    return res.status(400).json({ error: 'Missing required parameters' });
-  }
+const ATTRACTIONS = [
+  {
+    id: 'gz_tower',
+    name: '广州塔',
+    district: '海珠区',
+    category: '现代',
+    lat: 23.1065,
+    lng: 113.3245,
+    open_time: '09:30-22:30',
+    ticket: '150元起',
+    description: '中国第一高塔，昵称"小蛮腰"，高600米',
+    tags: ['地标', '夜景', '观光'],
+    checkin_radius: 150,
+    story: '广州塔于2009年建成，是世界第三高塔。独特的设计灵感来源于女性的腰部曲线。',
+  },
+  {
+    id: 'chen_clan',
+    name: '陈家祠',
+    district: '荔湾区',
+    category: '岭南',
+    lat: 23.1258,
+    lng: 113.2436,
+    open_time: '09:00-17:30',
+    ticket: '10元',
+    description: '广东现存规模最大、保存最完整的传统岭南祠堂式建筑',
+    tags: ['古建筑', '博物馆', '文化'],
+    checkin_radius: 100,
+    story: '陈家祠建于清光绪年间，集岭南建筑"七绝"工艺于一身。',
+  },
+  {
+    id: 'shamian',
+    name: '沙面岛',
+    district: '荔湾区',
+    category: '历史',
+    lat: 23.1097,
+    lng: 113.2389,
+    open_time: '全天开放',
+    ticket: '免费',
+    description: '广州最具异国情调的欧洲建筑群，曾是英法租界',
+    tags: ['欧式建筑', '摄影', '历史'],
+    checkin_radius: 100,
+    story: '沙面岛有150多座欧洲风格建筑，是广州最浪漫的街区之一。',
+  },
+  {
+    id: 'baiyun_mountain',
+    name: '白云山',
+    district: '白云区',
+    category: '自然',
+    lat: 23.1824,
+    lng: 113.2988,
+    open_time: '06:00-22:00',
+    ticket: '5元',
+    description: '南粤名山之一，自古有"羊城第一秀"之称',
+    tags: ['登山', '自然', '休闲'],
+    checkin_radius: 200,
+    story: '白云山是广州市的"市肺"，由30多座山峰组成，主峰摩星岭海拔382米。',
+  },
+  {
+    id: 'beijing_road',
+    name: '北京路步行街',
+    district: '越秀区',
+    category: '美食',
+    lat: 23.1249,
+    lng: 113.2644,
+    open_time: '全天开放',
+    ticket: '免费',
+    description: '广州最繁华的商业步行街，千年古道遗址所在地',
+    tags: ['购物', '美食', '历史'],
+    checkin_radius: 150,
+    story: '北京路是广州城建之始所在地，地下埋藏着唐、宋、元、明、清五朝路面遗址。',
+  },
+];
 
-  // 预设景点坐标
-  const attractions: Record<string, { lat: number; lng: number; radius: number }> = {
-    gz_tower: { lat: 23.1065, lng: 113.3245, radius: 150 },
-    chen_clan: { lat: 23.1258, lng: 113.2436, radius: 100 },
-    shamian: { lat: 23.1097, lng: 113.2389, radius: 100 },
-    baiyun_mountain: { lat: 23.1824, lng: 113.2988, radius: 200 },
-    beijing_road: { lat: 23.1249, lng: 113.2644, radius: 150 },
-  };
+// ============================================
+// HELPER FUNCTIONS
+// ============================================
 
-  const attraction = attractions[attraction_id];
-  if (!attraction) {
-    return res.status(404).json({ error: 'Attraction not found' });
-  }
-
-  // 计算距离（Haversine公式）
+// 计算两点距离（Haversine公式）
+function calculateDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371000; // 地球半径（米）
-  const dLat = (attraction.lat - lat) * Math.PI / 180;
-  const dLng = (attraction.lng - lng) * Math.PI / 180;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
   const a = Math.sin(dLat / 2) ** 2 +
-    Math.cos(lat * Math.PI / 180) * Math.cos(attraction.lat * Math.PI / 180) *
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
     Math.sin(dLng / 2) ** 2;
-  const distance = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
 
-  const isValid = distance <= attraction.radius;
-
-  res.json({
-    is_valid: isValid,
-    distance: Math.round(distance),
-    message: isValid
-      ? '打卡成功！'
-      : `距离景点还有${Math.round(distance)}米，请靠近后再试`,
-    points: isValid ? 10 : 0,
-  });
-});
-
-// 用户打卡记录
-app.get('/api/v1/checkins/:user_id', (req, res) => {
-  const { user_id } = req.params;
-
-  // 预设数据
-  const checkins = [
-    {
-      id: '1',
-      user_id,
-      attraction_id: 'gz_tower',
-      attraction_name: '广州塔',
-      checkin_time: new Date(Date.now() - 86400000).toISOString(),
-      points: 10,
-    },
-    {
-      id: '2',
-      user_id,
-      attraction_id: 'chen_clan',
-      attraction_name: '陈家祠',
-      checkin_time: new Date(Date.now() - 172800000).toISOString(),
-      points: 10,
-    },
-  ];
-
-  res.json({ checkins });
-});
-
-// 用户成就
-app.get('/api/v1/achievements/:user_id', (req, res) => {
-  const { user_id } = req.params;
-
-  const achievements = [
-    { id: '1', name: '初来乍到', description: '完成第一次打卡', is_unlocked: true },
-    { id: '2', name: '羊城探索者', description: '打卡5个不同景点', is_unlocked: false, progress: 60 },
-  ];
-
-  res.json({ achievements });
-});
-
-// 预设回复生成
+// 生成预设回复
 function generateFallbackResponse(message: string): string {
   const q = message.toLowerCase();
 
@@ -397,6 +292,275 @@ function generateFallbackResponse(message: string): string {
 请告诉我你想了解什么？`;
 }
 
+// ============================================
+// ROUTES
+// ============================================
+
+// Health check
+app.get('/api/v1/health', (_req: Request, res: Response) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// AI Chat endpoint (羊城印记智能导游)
+app.post('/api/v1/chat', async (req: Request, res: Response) => {
+  try {
+    // Validate request
+    const parseResult = chatSchema.safeParse(req.body);
+    if (!parseResult.success) {
+      return res.status(400).json({ 
+        error: 'Validation failed', 
+        details: parseResult.error.format() 
+      });
+    }
+
+    const { message, user_id } = parseResult.data;
+
+    // Check for Coze API credentials
+    const cozeToken = process.env.COZE_API_TOKEN;
+    const cozeBotId = process.env.COZE_BOT_ID;
+
+    if (cozeToken && cozeBotId) {
+      try {
+        const response = await fetch('https://api.coze.cn/open_api/v2/chat', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${cozeToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            bot_id: cozeBotId,
+            user: user_id || 'anonymous',
+            query: message,
+            stream: false,
+          }),
+        });
+
+        const data = await response.json() as { messages?: Array<{ role: string; type?: string; content?: string }> };
+
+        if (data.messages && data.messages.length > 0) {
+          const reply = data.messages.find((m) => m.role === 'assistant' && m.type === 'answer');
+          return res.json({
+            reply: reply?.content || '抱歉，我没有收到有效的回复。',
+            success: true,
+          });
+        }
+      } catch (apiError) {
+        console.error('Coze API error:', apiError);
+        // Fall through to fallback response
+      }
+    }
+
+    // Fallback response
+    const reply = generateFallbackResponse(message);
+    res.json({
+      reply,
+      success: true,
+    });
+  } catch (error) {
+    console.error('Chat error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// SSE Streaming Chat endpoint
+app.post('/api/v1/chat/stream', async (req: Request, res: Response) => {
+  try {
+    const parseResult = chatSchema.safeParse(req.body);
+    if (!parseResult.success) {
+      return res.status(400).json({ 
+        error: 'Validation failed', 
+        details: parseResult.error.format() 
+      });
+    }
+
+    const { message, user_id } = parseResult.data;
+
+    // Set SSE headers
+    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-store, no-transform, must-revalidate');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+
+    // Check for Coze API credentials
+    const cozeToken = process.env.COZE_API_TOKEN;
+    const cozeBotId = process.env.COZE_BOT_ID;
+
+    if (cozeToken && cozeBotId) {
+      try {
+        const response = await fetch('https://api.coze.cn/open_api/v2/chat', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${cozeToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            bot_id: cozeBotId,
+            user: user_id || 'anonymous',
+            query: message,
+            stream: true,
+          }),
+        });
+
+        // Handle streaming response from Coze
+        if (response.body) {
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const chunk = decoder.decode(value, { stream: true });
+            res.write(`data: ${chunk}\n\n`);
+          }
+        }
+
+        res.write('data: [DONE]\n\n');
+        res.end();
+        return;
+      } catch (apiError) {
+        console.error('Coze API stream error:', apiError);
+        // Fall through to fallback response
+      }
+    }
+
+    // Fallback: Stream response character by character
+    const reply = generateFallbackResponse(message);
+    for (const char of reply) {
+      res.write(`data: ${JSON.stringify({ content: char })}\n\n`);
+      await new Promise(resolve => setTimeout(resolve, 10));
+    }
+
+    res.write('data: [DONE]\n\n');
+    res.end();
+  } catch (error) {
+    console.error('Chat stream error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// 景点信息查询
+app.get('/api/v1/attractions', (_req: Request, res: Response) => {
+  res.json({ attractions: ATTRACTIONS, total: ATTRACTIONS.length });
+});
+
+// 获取单个景点
+app.get('/api/v1/attractions/:id', (req: Request, res: Response) => {
+  const attraction = ATTRACTIONS.find(a => a.id === req.params.id);
+  if (!attraction) {
+    return res.status(404).json({ error: 'Attraction not found' });
+  }
+  res.json({ attraction });
+});
+
+// 打卡验证
+app.post('/api/v1/checkin', (req: Request, res: Response) => {
+  try {
+    const parseResult = checkinSchema.safeParse(req.body);
+    if (!parseResult.success) {
+      return res.status(400).json({ 
+        error: 'Validation failed', 
+        details: parseResult.error.format() 
+      });
+    }
+
+    const { user_id, attraction_id, lat, lng } = parseResult.data;
+
+    const attraction = ATTRACTIONS.find(a => a.id === attraction_id);
+    if (!attraction) {
+      return res.status(404).json({ error: 'Attraction not found' });
+    }
+
+    const distance = calculateDistance(lat, lng, attraction.lat, attraction.lng);
+    const isValid = distance <= attraction.checkin_radius;
+
+    res.json({
+      is_valid: isValid,
+      distance: Math.round(distance),
+      message: isValid
+        ? '打卡成功！'
+        : `距离景点还有${Math.round(distance)}米，请靠近后再试`,
+      points: isValid ? 10 : 0,
+    });
+  } catch (error) {
+    console.error('Checkin error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// 用户打卡记录
+app.get('/api/v1/checkins/:user_id', (req: Request, res: Response) => {
+  try {
+    const { user_id } = req.params;
+
+    // 预设数据（后续可接入数据库）
+    const checkins = [
+      {
+        id: '1',
+        user_id,
+        attraction_id: 'gz_tower',
+        attraction_name: '广州塔',
+        checkin_time: new Date(Date.now() - 86400000).toISOString(),
+        points: 10,
+      },
+      {
+        id: '2',
+        user_id,
+        attraction_id: 'chen_clan',
+        attraction_name: '陈家祠',
+        checkin_time: new Date(Date.now() - 172800000).toISOString(),
+        points: 10,
+      },
+    ];
+
+    res.json({ checkins });
+  } catch (error) {
+    console.error('Get checkins error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// 用户成就
+app.get('/api/v1/achievements/:user_id', (req: Request, res: Response) => {
+  try {
+    const { user_id } = req.params;
+
+    const achievements = [
+      { id: '1', name: '初来乍到', description: '完成第一次打卡', is_unlocked: true },
+      { id: '2', name: '羊城探索者', description: '打卡5个不同景点', is_unlocked: false, progress: 60 },
+    ];
+
+    res.json({ achievements });
+  } catch (error) {
+    console.error('Get achievements error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ============================================
+// ERROR HANDLING
+// ============================================
+
+// 404 handler
+app.use((_req: Request, res: Response) => {
+  res.status(404).json({ error: 'Not found' });
+});
+
+// Global error handler
+app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({ 
+    error: process.env.NODE_ENV === 'production' 
+      ? 'Internal server error' 
+      : err.message 
+  });
+});
+
+// ============================================
+// START SERVER
+// ============================================
+
 app.listen(port, () => {
-  console.log(`Server listening at http://localhost:${port}/`);
+  console.log(`🐑 羊城印记 API Server running on port ${port}`);
+  console.log(`   Health: http://localhost:${port}/api/v1/health`);
 });

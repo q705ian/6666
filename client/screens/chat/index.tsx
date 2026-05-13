@@ -3,8 +3,8 @@ import { View, Text, ScrollView, TextInput, TouchableOpacity, StyleSheet } from 
 import { Ionicons } from '@expo/vector-icons';
 import { Screen } from '@/components/Screen';
 import { useCSSVariable } from 'uniwind';
-
-const EXPO_PUBLIC_BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091';
+import { QUICK_QUESTIONS } from '@/constants/attractions';
+import { chatApi } from '@/api';
 
 interface Message {
   id: string;
@@ -12,14 +12,6 @@ interface Message {
   content: string;
   timestamp: Date;
 }
-
-// 预设的快捷问题
-const QUICK_QUESTIONS = [
-  { id: '1', text: '广州塔有什么好看的？', icon: 'camera' },
-  { id: '2', text: '推荐一条美食路线', icon: 'restaurant' },
-  { id: '3', text: '陈家祠怎么去？', icon: 'location' },
-  { id: '4', text: '今天天气适合出游吗？', icon: 'sunny' },
-];
 
 export default function ChatScreen() {
   const [messages, setMessages] = useState<Message[]>([
@@ -66,40 +58,19 @@ export default function ChatScreen() {
     setIsLoading(true);
 
     try {
-      // 调用后端AI对话接口
-      const response = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          message: inputText.trim(),
-          user_id: 'demo_user',
-        }),
+      const response = await chatApi.send({
+        message: inputText.trim(),
+        user_id: 'demo_user',
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        const assistantMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          role: 'assistant',
-          content: data.reply || '抱歉，我现在有点忙，请稍后再试。',
-          timestamp: new Date(),
-        };
-        setMessages(prev => [...prev, assistantMessage]);
-      } else {
-        // 如果后端不可用，使用预设回复
-        const fallbackResponse = getFallbackResponse(inputText.trim());
-        const assistantMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          role: 'assistant',
-          content: fallbackResponse,
-          timestamp: new Date(),
-        };
-        setMessages(prev => [...prev, assistantMessage]);
-      }
+      const assistantMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: response.data?.reply || '抱歉，我现在有点忙，请稍后再试。',
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, assistantMessage]);
     } catch (error) {
-      // 网络错误，使用预设回复
       const fallbackResponse = getFallbackResponse(inputText.trim());
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -145,118 +116,114 @@ export default function ChatScreen() {
     <Screen>
       {/* Messages */}
       <ScrollView
-          ref={scrollViewRef}
-          style={styles.messagesContainer}
-          contentContainerStyle={styles.messagesContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {messages.map((message) => (
-            <View
-              key={message.id}
-              style={[
-                styles.messageRow,
-                message.role === 'user' ? styles.userRow : styles.assistantRow,
-              ]}
-            >
-              {message.role === 'assistant' && (
-                <View style={[styles.assistantAvatar, { backgroundColor: `${accent}20` }]}>
-                  <Ionicons name="location" size={16} color={accent as string} />
-                </View>
-              )}
-              <View
-                style={[
-                  styles.messageBubble,
-                  message.role === 'user'
-                    ? [styles.userBubble, { backgroundColor: accent }]
-                    : [styles.assistantBubble, { backgroundColor: surface }],
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.messageText,
-                    { color: message.role === 'user' ? '#FFFFFF' : textPrimary },
-                  ]}
-                >
-                  {message.content}
-                </Text>
-                <Text
-                  style={[
-                    styles.messageTime,
-                    { color: message.role === 'user' ? 'rgba(255,255,255,0.7)' : textSecondary },
-                  ]}
-                >
-                  {formatTime(message.timestamp)}
-                </Text>
-              </View>
-              {message.role === 'user' && (
-                <View style={styles.userAvatar}>
-                  <Ionicons name="person" size={16} color="#FFFFFF" />
-                </View>
-              )}
-            </View>
-          ))}
-          {isLoading && (
-            <View style={[styles.messageRow, styles.assistantRow]}>
+        ref={scrollViewRef}
+        style={styles.messagesContainer}
+        contentContainerStyle={styles.messagesContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {messages.map((message) => (
+          <View
+            key={message.id}
+            style={[
+              styles.messageRow,
+              message.role === 'user' ? styles.userRow : styles.assistantRow,
+            ]}
+          >
+            {message.role === 'assistant' && (
               <View style={[styles.assistantAvatar, { backgroundColor: `${accent}20` }]}>
                 <Ionicons name="location" size={16} color={accent as string} />
               </View>
-              <View style={[styles.messageBubble, styles.assistantBubble, { backgroundColor: surface }]}>
-                <View style={styles.loadingDots}>
-                  <View style={[styles.loadingDot, { backgroundColor: textSecondary }]} />
-                  <View style={[styles.loadingDot, { backgroundColor: textSecondary }]} />
-                  <View style={[styles.loadingDot, { backgroundColor: textSecondary }]} />
-                </View>
+            )}
+            <View
+              style={[
+                styles.messageBubble,
+                message.role === 'user'
+                  ? [styles.userBubble, { backgroundColor: accent }]
+                  : [styles.assistantBubble, { backgroundColor: surface }],
+              ]}
+            >
+              <Text
+                style={[
+                  styles.messageText,
+                  { color: message.role === 'user' ? '#FFFFFF' : textPrimary },
+                ]}
+              >
+                {message.content}
+              </Text>
+              <Text
+                style={[
+                  styles.messageTime,
+                  { color: message.role === 'user' ? 'rgba(255,255,255,0.7)' : textSecondary },
+                ]}
+              >
+                {formatTime(message.timestamp)}
+              </Text>
+            </View>
+            {message.role === 'user' && (
+              <View style={styles.userAvatar}>
+                <Ionicons name="person" size={16} color="#FFFFFF" />
+              </View>
+            )}
+          </View>
+        ))}
+        {isLoading && (
+          <View style={[styles.messageRow, styles.assistantRow]}>
+            <View style={[styles.assistantAvatar, { backgroundColor: `${accent}20` }]}>
+              <Ionicons name="location" size={16} color={accent as string} />
+            </View>
+            <View style={[styles.messageBubble, styles.assistantBubble, { backgroundColor: surface }]}>
+              <View style={styles.loadingDots}>
+                <View style={[styles.loadingDot, { backgroundColor: textSecondary }]} />
+                <View style={[styles.loadingDot, { backgroundColor: textSecondary }]} />
+                <View style={[styles.loadingDot, { backgroundColor: textSecondary }]} />
               </View>
             </View>
-          )}
-        </ScrollView>
+          </View>
+        )}
+      </ScrollView>
 
-        {/* Quick Questions */}
-        {messages.length <= 2 && !isLoading && (
-          <View style={styles.quickQuestions}>
-            <Text style={[styles.quickTitle, { color: textSecondary }]}>快捷问题</Text>
-            <View>
+      {/* Quick Questions */}
+      {messages.length <= 2 && !isLoading && (
+        <View style={styles.quickQuestions}>
+          <Text style={[styles.quickTitle, { color: textSecondary }]}>快捷问题</Text>
+          <View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickList}>
               {QUICK_QUESTIONS.map((q) => (
                 <TouchableOpacity
                   key={q.id}
                   style={[styles.quickItem, { backgroundColor: surface }]}
-                  onPress={() => handleQuickQuestion(q.text)}
+                  onPress={() => handleQuickQuestion(q.query)}
                 >
-                  <Ionicons name={q.icon as any} size={14} color={accent as string} />
                   <Text style={[styles.quickText, { color: textPrimary }]}>{q.text}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
-            </View>
           </View>
-        )}
-
-        {/* Input */}
-        <View style={[styles.inputContainer, { backgroundColor: surface, borderTopColor: 'rgba(0,0,0,0.06)' }]}>
-          <TouchableOpacity style={styles.attachBtn}>
-            <Ionicons name="image" size={22} color={textSecondary} />
-          </TouchableOpacity>
-          <TextInput
-            style={[styles.input, { backgroundColor: background, color: textPrimary }]}
-            placeholder="输入你的问题..."
-            placeholderTextColor={textSecondary}
-            value={inputText}
-            onChangeText={setInputText}
-            multiline
-            maxLength={500}
-          />
-          <TouchableOpacity
-            style={[
-              styles.sendBtn,
-              { backgroundColor: inputText.trim() ? accent : textSecondary },
-            ]}
-            onPress={handleSend}
-            disabled={!inputText.trim() || isLoading}
-          >
-            <Ionicons name="send" size={18} color="#FFFFFF" />
-          </TouchableOpacity>
         </View>
+      )}
+
+      {/* Input */}
+      <View style={[styles.inputContainer, { backgroundColor: surface, borderTopColor: 'rgba(0,0,0,0.06)' }]}>
+        <TouchableOpacity style={styles.attachBtn}>
+          <Ionicons name="image" size={22} color={textSecondary} />
+        </TouchableOpacity>
+        <TextInput
+          style={[styles.input, { backgroundColor: background, color: textPrimary }]}
+          placeholder="输入你的问题..."
+          placeholderTextColor={textSecondary}
+          value={inputText}
+          onChangeText={setInputText}
+          multiline
+          maxLength={500}
+        />
+        <TouchableOpacity
+          style={[styles.sendBtn, { backgroundColor: accent }]}
+          onPress={handleSend}
+          disabled={!inputText.trim() || isLoading}
+        >
+          <Ionicons name="send" size={18} color="#FFFFFF" />
+        </TouchableOpacity>
+      </View>
     </Screen>
   );
 }
@@ -266,8 +233,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   messagesContent: {
-    padding: 16,
-    paddingBottom: 20,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
   },
   messageRow: {
     marginBottom: 16,
@@ -299,7 +267,8 @@ const styles = StyleSheet.create({
   },
   messageBubble: {
     maxWidth: '75%',
-    padding: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderRadius: 20,
   },
   userBubble: {
@@ -311,22 +280,20 @@ const styles = StyleSheet.create({
   messageText: {
     fontSize: 15,
     lineHeight: 22,
-    marginBottom: 4,
   },
   messageTime: {
     fontSize: 10,
+    marginTop: 4,
     alignSelf: 'flex-end',
   },
   loadingDots: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 4,
     gap: 4,
   },
   loadingDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     opacity: 0.5,
   },
   quickQuestions: {
@@ -341,35 +308,35 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   quickItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
     paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 20,
-    gap: 6,
+    paddingVertical: 8,
+    borderRadius: 16,
+    marginRight: 8,
   },
   quickText: {
     fontSize: 13,
-    fontWeight: '500',
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     borderTopWidth: 1,
-    gap: 10,
+    gap: 8,
   },
   attachBtn: {
-    padding: 8,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   input: {
     flex: 1,
     minHeight: 40,
     maxHeight: 100,
-    borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 10,
+    borderRadius: 20,
     fontSize: 15,
   },
   sendBtn: {

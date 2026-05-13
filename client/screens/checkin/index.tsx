@@ -1,12 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, FlatList } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { Screen } from '@/components/Screen';
 import { useCSSVariable } from 'uniwind';
-
-const EXPO_PUBLIC_BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091';
+import { ATTRACTIONS } from '@/constants/attractions';
 
 // 打卡记录数据
 const CHECKIN_RECORDS = [
@@ -15,7 +14,7 @@ const CHECKIN_RECORDS = [
     attractionId: 'gz_tower',
     attractionName: '广州塔',
     district: '海珠区',
-    image: 'https://coze-coding-project.tos.coze.site/coze_storage_7634004491666227210/image/generate_image_12618e46-93fa-4233-815c-4283c5c6eb5e.jpeg?sign=1809762590-aab807f870-0-3424e61b81b792b3bb81d91e04dab6e756c4045309f863b7e2e51100d0fb032d',
+    image: 'https://images.unsplash.com/photo-1547190994-4e494a1b4e44?w=400',
     checkinTime: new Date(Date.now() - 86400000),
     mood: '太震撼了！',
     isValid: true,
@@ -25,7 +24,7 @@ const CHECKIN_RECORDS = [
     attractionId: 'chen_clan',
     attractionName: '陈家祠',
     district: '荔湾区',
-    image: 'https://coze-coding-project.tos.coze.site/coze_storage_7634004491666227210/image/generate_image_3a9fe745-95bc-43e9-9cdd-8a6327f9e48c.jpeg?sign=1809762591-b4fc03e60f-0-5707a617615ba3a222786c6dbc362e9c657929faa5824db824d40d0c8e73c055',
+    image: 'https://images.unsplash.com/photo-1583417319070-4a69db38a482?w=400',
     checkinTime: new Date(Date.now() - 172800000),
     mood: '岭南建筑真精美',
     isValid: true,
@@ -35,72 +34,32 @@ const CHECKIN_RECORDS = [
     attractionId: 'shamian',
     attractionName: '沙面岛',
     district: '荔湾区',
-    image: 'https://coze-coding-project.tos.coze.site/coze_storage_7634004491666227210/image/generate_image_a26ac1c0-5d7b-4d0d-a2ad-57de1ba6192a.jpeg?sign=1809762589-632d886d54-0-8c103b4dc47a9f84caa67cd7cdf13b1f4e1a79574b963844f7ee6ae61041836f',
+    image: 'https://images.unsplash.com/photo-1547981609-4b6bfe67ca0b?w=400',
     checkinTime: new Date(Date.now() - 259200000),
     mood: '很有情调的地方',
     isValid: true,
   },
 ];
 
-// 附近景点数据
-const NEARBY_ATTRACTIONS = [
-  {
-    id: 'gz_tower',
-    name: '广州塔',
-    district: '海珠区',
-    distance: '1.2km',
-    image: 'https://coze-coding-project.tos.coze.site/coze_storage_7634004491666227210/image/generate_image_12618e46-93fa-4233-815c-4283c5c6eb5e.jpeg?sign=1809762590-aab807f870-0-3424e61b81b792b3bb81d91e04dab6e756c4045309f863b7e2e51100d0fb032d',
-    tags: ['地标', '夜景'],
-    lat: 23.1065,
-    lng: 113.3245,
-  },
-  {
-    id: 'chen_clan',
-    name: '陈家祠',
-    district: '荔湾区',
-    distance: '2.5km',
-    image: 'https://coze-coding-project.tos.coze.site/coze_storage_7634004491666227210/image/generate_image_3a9fe745-95bc-43e9-9cdd-8a6327f9e48c.jpeg?sign=1809762591-b4fc03e60f-0-5707a617615ba3a222786c6dbc362e9c657929faa5824db824d40d0c8e73c055',
-    tags: ['古建筑', '文化'],
-    lat: 23.1258,
-    lng: 113.2436,
-  },
-  {
-    id: 'shamian',
-    name: '沙面岛',
-    district: '荔湾区',
-    distance: '3.1km',
-    image: 'https://coze-coding-project.tos.coze.site/coze_storage_7634004491666227210/image/generate_image_a26ac1c0-5d7b-4d0d-a2ad-57de1ba6192a.jpeg?sign=1809762589-632d886d54-0-8c103b4dc47a9f84caa67cd7cdf13b1f4e1a79574b963844f7ee6ae61041836f',
-    tags: ['欧式', '历史'],
-    lat: 23.1097,
-    lng: 113.2389,
-  },
-  {
-    id: 'baiyun_mountain',
-    name: '白云山',
-    district: '白云区',
-    distance: '4.5km',
-    image: 'https://coze-coding-project.tos.coze.site/coze_storage_7634004491666227210/image/generate_image_0eee4af4-29d8-4e4a-9c9b-5912f9b963ab.jpeg?sign=1809762590-87f3dcd8f7-0-6524cf726764e57396f48d35a4598195dfece79f81b08351013341e1f95f3209',
-    tags: ['登山', '自然'],
-    lat: 23.1824,
-    lng: 113.2988,
-  },
-  {
-    id: 'beijing_road',
-    name: '北京路',
-    district: '越秀区',
-    distance: '3.8km',
-    image: 'https://coze-coding-project.tos.coze.site/coze_storage_7634004491666227210/image/generate_image_1a0e3da5-6224-427c-9031-15fb1354631f.jpeg?sign=1809762591-2e8a50b791-0-3184026a384d622c5c184e0315db711f2d4e20cb22e9cceaf7a33dae7ad435f1',
-    tags: ['美食', '购物'],
-    lat: 23.1249,
-    lng: 113.2644,
-  },
-];
+// 附近景点数据 - 使用统一的景点数据
+const getNearbyAttractions = () => {
+  return ATTRACTIONS.map((attraction) => ({
+    id: attraction.id,
+    name: attraction.name,
+    district: attraction.district,
+    distance: `${(Math.random() * 5 + 0.5).toFixed(1)}km`,
+    image: attraction.image,
+    tags: attraction.tags.slice(0, 2),
+    lat: attraction.lat,
+    lng: attraction.lng,
+  }));
+};
 
 export default function CheckinScreen() {
   const router = useSafeRouter();
   const [activeTab, setActiveTab] = useState<'records' | 'nearby'>('records');
   const [records] = useState(CHECKIN_RECORDS);
-  const [nearbyAttractions] = useState(NEARBY_ATTRACTIONS);
+  const [nearbyAttractions] = useState(getNearbyAttractions);
   const [accent, textPrimary, textSecondary, surface] = useCSSVariable([
     '--color-accent',
     '--color-foreground',
@@ -119,17 +78,16 @@ export default function CheckinScreen() {
     return date.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' });
   };
 
-  const handleCheckinPress = () => {
-    handleCheckin();
-  };
-
-  const handleCheckin = (id?: string, name?: string, lat?: number, lng?: number) => {
-    // 跳转到打卡页面
+  const handleCheckin = (item?: typeof nearbyAttractions[0]) => {
+    const attraction = item 
+      ? nearbyAttractions.find(a => a.id === item.id)
+      : ATTRACTIONS[0];
+    
     router.push('/checkin-action', { 
-      id: id || 'gz_tower',
-      name: name || '广州塔',
-      lat: String(lat || 23.1065),
-      lng: String(lng || 113.3245),
+      id: attraction?.id || 'gz_tower',
+      name: attraction?.name || '广州塔',
+      lat: String(attraction?.lat || 23.1065),
+      lng: String(attraction?.lng || 113.3245),
     });
   };
 
@@ -156,7 +114,7 @@ export default function CheckinScreen() {
     </View>
   );
 
-  const renderNearbyAttraction = ({ item }: { item: typeof NEARBY_ATTRACTIONS[0] }) => (
+  const renderNearbyAttraction = ({ item }: { item: typeof nearbyAttractions[0] }) => (
     <TouchableOpacity 
       style={styles.nearbyCard}
       onPress={() => router.push('/attraction-detail', { id: item.id })}
@@ -165,7 +123,7 @@ export default function CheckinScreen() {
       <View style={styles.nearbyOverlay}>
         <TouchableOpacity 
           style={styles.checkinQuickBtn}
-          onPress={() => handleCheckin(item.id, item.name, item.lat, item.lng)}
+          onPress={() => handleCheckin(item)}
         >
           <Ionicons name="checkmark" size={14} color="#FFF" />
         </TouchableOpacity>
@@ -200,7 +158,7 @@ export default function CheckinScreen() {
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: accent }]}>5</Text>
+            <Text style={[styles.statValue, { color: accent }]}>{ATTRACTIONS.length}</Text>
             <Text style={[styles.statLabel, { color: textSecondary }]}>目标</Text>
           </View>
         </View>
@@ -286,7 +244,7 @@ export default function CheckinScreen() {
       )}
 
       {/* Check-in Button */}
-      <TouchableOpacity style={styles.checkinBtn} onPress={handleCheckinPress}>
+      <TouchableOpacity style={styles.checkinBtn} onPress={() => handleCheckin()}>
         <LinearGradient
           colors={[accent as string, `${accent}CC`]}
           style={styles.checkinGradient}

@@ -1,85 +1,23 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen } from '@/components/Screen';
 import { useCSSVariable } from 'uniwind';
+import { ACHIEVEMENT_DEFINITIONS } from '@/constants/attractions';
 
-// 徽章数据
-const BADGES = [
-  {
-    id: '1',
-    name: '初来乍到',
-    description: '完成第一次打卡',
-    icon: 'footsteps',
-    color: '#6C63FF',
-    progress: 100,
-    isUnlocked: true,
-    unlockTime: '2024-01-15',
-  },
-  {
-    id: '2',
-    name: '羊城探索者',
-    description: '打卡5个不同景点',
-    icon: 'compass',
-    color: '#FF6584',
-    progress: 60,
-    isUnlocked: false,
-  },
-  {
-    id: '3',
-    name: '夜景达人',
-    description: '打卡3个夜景景点',
-    icon: 'moon',
-    color: '#0EA5E9',
-    progress: 33,
-    isUnlocked: false,
-  },
-  {
-    id: '4',
-    name: '美食家',
-    description: '打卡5个美食地点',
-    icon: 'restaurant',
-    color: '#FDCB6E',
-    progress: 40,
-    isUnlocked: false,
-  },
-  {
-    id: '5',
-    name: '岭南文化迷',
-    description: '打卡所有岭南建筑',
-    icon: 'business',
-    color: '#854D0E',
-    progress: 25,
-    isUnlocked: false,
-  },
-  {
-    id: '6',
-    name: '历史爱好者',
-    description: '打卡5个历史景点',
-    icon: 'time',
-    color: '#78716C',
-    progress: 60,
-    isUnlocked: false,
-  },
-  {
-    id: '7',
-    name: '自然氧吧',
-    description: '打卡3个自然景点',
-    icon: 'leaf',
-    color: '#059669',
-    progress: 66,
-    isUnlocked: false,
-  },
-  {
-    id: '8',
-    name: '全城打卡王',
-    description: '打卡广州市所有区县',
-    icon: 'trophy',
-    color: '#FBBF24',
-    progress: 20,
-    isUnlocked: false,
-  },
-];
+// 徽章数据 - 使用常量定义并添加状态
+const getBadges = () => {
+  return ACHIEVEMENT_DEFINITIONS.map((def, index) => ({
+    id: def.id,
+    name: def.name,
+    description: def.description,
+    icon: def.icon,
+    color: ['#6C63FF', '#FF6584', '#0EA5E9', '#FDCB6E', '#854D0E', '#059669'][index % 6],
+    progress: Math.floor(Math.random() * 100),
+    isUnlocked: index === 0,
+    unlockTime: index === 0 ? '2024-01-15' : undefined,
+  }));
+};
 
 // 用户成就统计
 const STATS = {
@@ -92,6 +30,7 @@ const STATS = {
 
 export default function BadgesScreen() {
   const [selectedTab, setSelectedTab] = useState<'all' | 'unlocked'>('all');
+  const [badges] = useState(getBadges);
   const [accent, textPrimary, textSecondary, surface] = useCSSVariable([
     '--color-accent',
     '--color-foreground',
@@ -99,10 +38,10 @@ export default function BadgesScreen() {
     '--color-surface',
   ]) as string[];
 
-  const unlockedBadges = BADGES.filter((b) => b.isUnlocked);
-  const displayedBadges = selectedTab === 'all' ? BADGES : unlockedBadges;
+  const unlockedBadges = badges.filter((b) => b.isUnlocked);
+  const displayedBadges = selectedTab === 'all' ? badges : unlockedBadges;
 
-  const renderBadge = (badge: typeof BADGES[0]) => (
+  const renderBadge = (badge: typeof badges[0]) => (
     <View key={badge.id} style={styles.badgeCard}>
       <View
         style={[
@@ -112,14 +51,10 @@ export default function BadgesScreen() {
           },
         ]}
       >
-        <Ionicons
-          name={badge.icon as any}
-          size={32}
-          color={badge.isUnlocked ? badge.color : textSecondary as string}
-        />
+        <Text style={{ fontSize: 28 }}>{badge.icon}</Text>
         {!badge.isUnlocked && (
           <View style={styles.lockOverlay}>
-            <Ionicons name="lock-closed" size={16} color="#FFFFFF" />
+            <Ionicons name="lock-closed" size={14} color="#FFFFFF" />
           </View>
         )}
       </View>
@@ -459,8 +394,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   tipIcon: {
-    width: 28,
-    height: 28,
+    width: 32,
+    height: 32,
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
@@ -468,7 +403,6 @@ const styles = StyleSheet.create({
   tipText: {
     flex: 1,
     fontSize: 13,
-    lineHeight: 18,
   },
   bottomPadding: {
     height: 20,

@@ -3,6 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, Switch } f
 import { Ionicons } from '@expo/vector-icons';
 import { Screen } from '@/components/Screen';
 import { useCSSVariable } from 'uniwind';
+import type { MenuItem, MenuSection } from '@/types';
 
 // 用户数据
 const USER_DATA = {
@@ -14,20 +15,6 @@ const USER_DATA = {
   followers: 256,
   following: 128,
 };
-
-// 菜单项类型定义
-interface MenuItem {
-  id: string;
-  icon: string;
-  label: string;
-  toggle?: boolean;
-  value?: string | boolean;
-}
-
-interface MenuSection {
-  title: string;
-  items: MenuItem[];
-}
 
 // 菜单项
 const MENU_SECTIONS: MenuSection[] = [

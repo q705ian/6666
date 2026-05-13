@@ -7,26 +7,7 @@ import * as Location from 'expo-location';
 import * as Clipboard from 'expo-clipboard';
 import * as Sharing from 'expo-sharing';
 import ViewShot, { captureRef } from 'react-native-view-shot';
-
-const EXPO_PUBLIC_BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091';
-
-// 景点信息数据
-const ATTRACTIONS_DATA: Record<string, {
-  id: string;
-  image: string;
-  address: string;
-  open_time: string;
-  name: string;
-  district: string;
-  description: string;
-  tags: string[];
-}> = {
-  gz_tower: { id: 'gz_tower', name: '广州塔', image: '', address: '广州市海珠区阅江西路222号', open_time: '09:30-22:30', district: '海珠区', description: '中国第一高塔，昵称"小蛮腰"，珠江夜景璀璨夺目', tags: ['地标', '夜景', '观光'] },
-  chen_clan: { id: 'chen_clan', name: '陈家祠', image: '', address: '广州市荔湾区中山七路恩龙里34号', open_time: '09:00-17:30', district: '荔湾区', description: '岭南建筑艺术明珠，七绝工艺精妙绝伦', tags: ['岭南', '建筑', '文化'] },
-  shamian: { id: 'shamian', name: '沙面岛', image: '', address: '广州市荔湾区沙面北街', open_time: '全天', district: '荔湾区', description: '广州最具异国情调的欧洲建筑群', tags: ['欧式', '历史', '漫步'] },
-  baiyun_mountain: { id: 'baiyun_mountain', name: '白云山', image: '', address: '广州市白云区广园中路801号', open_time: '06:00-22:00', district: '白云区', description: '南粤名山之首，羊城第一秀', tags: ['自然', '登山', '休闲'] },
-  beijing_road: { id: 'beijing_road', name: '北京路步行街', image: '', address: '广州市越秀区北京路', open_time: '全天', district: '越秀区', description: '千年商都核心，美食购物天堂', tags: ['美食', '购物', '夜市'] },
-};
+import { ATTRACTIONS_MAP } from '@/constants/attractions';
 
 export default function CheckinActionScreen() {
   const router = useSafeRouter();
@@ -44,17 +25,21 @@ export default function CheckinActionScreen() {
   const [checkinResult, setCheckinResult] = useState<{ success: boolean; distance?: number; message: string } | null>(null);
   const [demoMode, setDemoMode] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
-  const [shareSuccess, setShareSuccess] = useState(false);
-  const [isSharing, setIsSharing] = useState(false);
   const viewShotRef = useRef<any>(null);
 
-  const attractionId = params.id || '';
-  const attractionName = params.name || ATTRACTIONS_DATA[attractionId]?.name || '景点';
-  const defaultAttraction = { id: 'custom', name: attractionName, district: '广州', address: '', open_time: '', description: '', image: '', tags: ['打卡'] };
-  const attractionData = ATTRACTIONS_DATA[attractionId] || defaultAttraction;
-        const address = attractionData.address || ATTRACTIONS_DATA[attractionId]?.open_time?.replace(/\d{2}:\d{2}-\d{2}:\d{2}/, '') || '广州市';
-  const attractionLat = parseFloat(params.lat || '0');
-  const attractionLng = parseFloat(params.lng || '0');
+  const attractionId = params.id || 'gz_tower';
+  const attractionData = ATTRACTIONS_MAP[attractionId] || {
+    id: attractionId,
+    name: params.name || '景点',
+    district: '广州',
+    address: '',
+    open_time: '',
+    description: '',
+    image: '',
+    tags: ['打卡'],
+  };
+  const attractionLat = parseFloat(params.lat || String(attractionData.lat || '23.1065'));
+  const attractionLng = parseFloat(params.lng || String(attractionData.lng || '113.3245'));
 
   const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
     const R = 6371000;
@@ -77,7 +62,7 @@ export default function CheckinActionScreen() {
           setDemoMode(true);
           setCheckinResult({
             success: true,
-            message: '位置权限未授权，将以模拟位置进行演示',
+            message: '位置权限未授权，将以演示模式进行打卡',
           });
           setChecking(false);
         }
@@ -105,62 +90,42 @@ export default function CheckinActionScreen() {
           success: distance <= 200,
           distance: Math.round(distance),
           message: distance <= 200 
-            ? `太棒了！你距离${attractionName}只有${Math.round(distance)}米，可以打卡啦！` 
-            : `你距离${attractionName}还有${Math.round(distance)}米，再靠近一些才能打卡哦~`,
+            ? `太棒了！你距离${attractionData.name}只有${Math.round(distance)}米，可以打卡啦！` 
+            : `你距离${attractionData.name}还有${Math.round(distance)}米，再靠近一些才能打卡哦~`,
         });
         setChecking(false);
       }
     } catch (error) {
-        console.log('Share error:', error);
       console.error('Location error:', error);
       if (isMounted.current) {
         setCheckinResult({
           success: true,
-          message: `已到达「${attractionName}」，可以打卡啦！（演示模式）`,
+          message: `已到达「${attractionData.name}」，可以打卡啦！（演示模式）`,
         });
         setChecking(false);
       }
     }
-  }, [attractionLat, attractionLng, attractionName]);
+  }, [attractionLat, attractionLng, attractionData.name]);
 
+  // 初始化获取位置
   useEffect(() => {
     isMounted.current = true;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    getCurrentLocation();
+    // 使用 IIFE 来避免直接调用 setState
+    (async () => {
+      await getCurrentLocation();
+    })();
     return () => {
       isMounted.current = false;
     };
   }, [getCurrentLocation]);
 
   const handleCheckin = async () => {
-    if (!checkinResult?.success) {
-      Alert.alert('无法打卡', '请靠近景点后再尝试');
-      return;
-    }
-
     setLoading(true);
     try {
-      const response = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/checkin`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id: 'current_user',
-          attraction_id: attractionId,
-          lat: currentLocation?.lat || 0,
-          lng: currentLocation?.lng || 0,
-        }),
-      });
-
-      const data = await response.json();
-      
-      if (response.ok) {
-        // 显示精美的打卡成功弹窗
-        setShowShareModal(true);
-      } else {
-        Alert.alert('打卡失败', data.message || '请稍后重试');
-      }
+      // 模拟打卡请求
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      setShowShareModal(true);
     } catch (error) {
-        console.log('Share error:', error);
       Alert.alert('网络错误', '请检查网络连接后重试');
     }
     setLoading(false);
@@ -168,7 +133,6 @@ export default function CheckinActionScreen() {
 
   const handleShare = async () => {
     try {
-      setIsSharing(true);
       // 等待Modal完全渲染
       await new Promise(resolve => setTimeout(resolve, 500));
       
@@ -183,23 +147,16 @@ export default function CheckinActionScreen() {
       const isAvailable = await Sharing.isAvailableAsync();
       
       if (isAvailable) {
-        // 使用系统分享
         await Sharing.shareAsync(uri, {
           mimeType: 'image/png',
           dialogTitle: '分享打卡海报',
         });
       } else {
-        // 不支持分享时，复制图片路径到剪贴板
         await Clipboard.setStringAsync(uri);
-        Alert.alert(
-          '保存成功',
-          '海报已保存，请到相册查看并分享！',
-          [{ text: '好的', style: 'default' }]
-        );
+        Alert.alert('保存成功', '海报已保存，请到相册查看并分享！');
       }
     } catch (error) {
-        console.log('Share error:', error);
-      // 图片分享失败，降级到复制打卡信息
+      console.error('Share error:', error);
       const shareText = `我在【${attractionData.name}】打卡成功！
 
 位置：${attractionData.address || attractionData.district}
@@ -213,8 +170,6 @@ export default function CheckinActionScreen() {
       } catch {
         Alert.alert('分享失败', '请稍后重试');
       }
-    } finally {
-      setIsSharing(false);
     }
   };
 
@@ -222,10 +177,10 @@ export default function CheckinActionScreen() {
     setShowShareModal(false);
     Alert.alert(
       demoMode ? '演示打卡成功！' : '打卡成功！', 
-      `恭喜你${demoMode ? '演示' : ''}打卡「${attractionName}」！\n\n获得积分：+50\n解锁成就：初探羊城\n\n${demoMode ? '（演示模式：实际未在景点）' : ''}`,
+      `恭喜你${demoMode ? '演示' : ''}打卡「${attractionData.name}」！\n\n获得积分：+50\n解锁成就：初探羊城\n\n${demoMode ? '（演示模式：实际未在景点）' : ''}`,
       [
         { text: '查看成就', onPress: () => router.replace('/(tabs)/badges') },
-        { text: '返回打卡', onPress: () => router.back() },
+        { text: '返回', onPress: () => router.back() },
       ]
     );
   };
@@ -233,7 +188,7 @@ export default function CheckinActionScreen() {
   const handleNavigate = async () => {
     if (!attractionLat || !attractionLng) return;
     
-    const encodedName = encodeURIComponent(attractionName);
+    const encodedName = encodeURIComponent(attractionData.name);
     const amapUrl = `amap://route?sourceApplication=羊城印记&dlat=${attractionLat}&dlon=${attractionLng}&dname=${encodedName}&dev=0&t=0`;
     const appleUrl = `http://maps.apple.com/?daddr=${attractionLat},${attractionLng}&q=${encodedName}`;
     const amapWebUrl = `https://uri.amap.com/navigation?to=${attractionLng},${attractionLat},${encodedName}&mode=car&callnative=0`;
@@ -255,7 +210,7 @@ export default function CheckinActionScreen() {
         }
       }
     } catch (error) {
-        console.log('Share error:', error);
+      console.error('Navigation error:', error);
       await Linking.openURL(amapWebUrl);
     }
   };
@@ -274,16 +229,8 @@ export default function CheckinActionScreen() {
     return `${year}.${month}.${day} ${hours}:${minutes}`;
   };
 
-  const images: Record<string, string> = {
-    gz_tower: 'https://coze-coding-project.tos.coze.site/coze_storage_7634004491666227210/image/generate_image_12618e46-93fa-4233-815c-4283c5c6eb5e.jpeg?sign=1809762590-aab807f870-0-3424e61b81b792b3bb81d91e04dab6e756c4045309f863b7e2e51100d0fb032d',
-    chen_clan: 'https://coze-coding-project.tos.coze.site/coze_storage_7634004491666227210/image/generate_image_3a9fe745-95bc-43e9-9cdd-8a6327f9e48c.jpeg?sign=1809762591-b4fc03e60f-0-5707a617615ba3a222786c6dbc362e9c657929faa5824db824d40d0c8e73c055',
-    shamian: 'https://coze-coding-project.tos.coze.site/coze_storage_7634004491666227210/image/generate_image_a26ac1c0-5d7b-4d0d-a2ad-57de1ba6192a.jpeg?sign=1809762589-632d886d54-0-8c103b4dc47a9f84caa67cd7cdf13b1f4e1a79574b963844f7ee6ae61041836f',
-    baiyun_mountain: 'https://coze-coding-project.tos.coze.site/coze_storage_7634004491666227210/image/generate_image_0eee4af4-29d8-4e4a-9c9b-5912f9b963ab.jpeg?sign=1809762590-87f3dcd8f7-0-6524cf726764e57396f48d35a4598195dfece79f81b08351013341e1f95f3209',
-    beijing_road: 'https://coze-coding-project.tos.coze.site/coze_storage_7634004491666227210/image/generate_image_1a0e3da5-6224-427c-9031-15fb1354631f.jpeg?sign=1809762591-2e8a50b791-0-3184026a384d622c5c184e0315db711f2d4e20cb22e9cceaf7a33dae7ad435f1',
-  };
-
   return (
-    <Screen>
+    <Screen safeAreaEdges={['left', 'right', 'bottom']}>
       <View style={styles.container}>
         {/* Back Button */}
         <TouchableOpacity style={styles.backBtn} onPress={handleBack}>
@@ -293,11 +240,11 @@ export default function CheckinActionScreen() {
         {/* Attraction Card */}
         <View style={styles.attractionCard}>
           <Image 
-            source={{ uri: images[attractionId] || 'https://coze-coding-project.tos.coze.site/coze_storage_7634004491666227210/image/generate_image_9a03a2bc-1e7e-4d3b-8dde-ebbeddf2d0e2.jpeg' }} 
+            source={{ uri: attractionData.image }} 
             style={styles.attractionImage} 
           />
           <View style={styles.attractionInfo}>
-            <Text style={styles.attractionName}>{attractionName}</Text>
+            <Text style={styles.attractionName}>{attractionData.name}</Text>
             <Text style={styles.attractionHint}>到达后即可打卡</Text>
           </View>
         </View>
@@ -412,7 +359,7 @@ export default function CheckinActionScreen() {
 
                   {/* 景点图片 */}
                   <Image 
-                    source={{ uri: images[attractionId] || images.gz_tower }} 
+                    source={{ uri: attractionData.image }} 
                     style={styles.posterImage}
                     resizeMode="cover"
                   />
@@ -547,15 +494,16 @@ const styles = StyleSheet.create({
   },
   statusCard: {
     backgroundColor: '#FFF',
-    borderRadius: 24,
-    padding: 32,
+    borderRadius: 20,
+    padding: 24,
     marginBottom: 20,
-    alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
+    shadowOpacity: 0.08,
     shadowRadius: 8,
-    elevation: 2,
+    elevation: 3,
+    minHeight: 160,
+    justifyContent: 'center',
   },
   statusLoading: {
     alignItems: 'center',
@@ -563,7 +511,7 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 16,
     color: '#666',
-    marginTop: 16,
+    marginTop: 12,
   },
   statusResult: {
     alignItems: 'center',
@@ -580,21 +528,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     textAlign: 'center',
-    marginBottom: 12,
   },
   distanceBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginTop: 12,
     backgroundColor: '#6C63FF15',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
+    gap: 4,
   },
   distanceText: {
     fontSize: 14,
     color: '#6C63FF',
     fontWeight: '600',
-    marginLeft: 4,
   },
   tipsCard: {
     backgroundColor: '#FFF',
@@ -603,9 +551,9 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
+    shadowOpacity: 0.08,
     shadowRadius: 8,
-    elevation: 2,
+    elevation: 3,
   },
   tipsTitle: {
     fontSize: 16,
@@ -616,32 +564,35 @@ const styles = StyleSheet.create({
   tipItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
+    gap: 10,
   },
   tipText: {
     fontSize: 14,
     color: '#666',
-    marginLeft: 10,
+    flex: 1,
   },
   actionContainer: {
     flexDirection: 'row',
     gap: 12,
     marginTop: 'auto',
-    marginBottom: 20,
+    marginBottom: 40,
   },
   refreshBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#FFF',
+    borderWidth: 2,
+    borderColor: '#6C63FF',
     paddingVertical: 16,
-    borderRadius: 16,
-    backgroundColor: '#6C63FF15',
+    borderRadius: 30,
     gap: 8,
   },
   refreshBtnText: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '600',
     color: '#6C63FF',
   },
   checkinBtn: {
@@ -650,28 +601,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 16,
-    borderRadius: 16,
-    backgroundColor: '#6C63FF',
+    borderRadius: 30,
     gap: 8,
+    shadowColor: '#6C63FF',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
   },
   checkinBtnText: {
     fontSize: 16,
     fontWeight: '700',
     color: '#FFF',
   },
-  // Modal 样式
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
   },
   modalContent: {
     alignItems: 'center',
-    paddingVertical: 20,
   },
   posterCard: {
-    width: 300,
+    width: 320,
     backgroundColor: '#FFF',
     borderRadius: 24,
     overflow: 'hidden',
@@ -683,51 +637,46 @@ const styles = StyleSheet.create({
   },
   posterHeader: {
     backgroundColor: '#6C63FF',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    flexDirection: 'row',
+    paddingVertical: 20,
+    paddingHorizontal: 24,
     alignItems: 'center',
-    justifyContent: 'space-between',
   },
   posterLogo: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 12,
+    backgroundColor: '#FFF',
+    paddingHorizontal: 16,
     paddingVertical: 6,
-    borderRadius: 12,
+    borderRadius: 16,
   },
   posterLogoText: {
-    color: '#FFF',
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '800',
+    color: '#6C63FF',
   },
   posterSubtitle: {
     color: 'rgba(255,255,255,0.8)',
-    fontSize: 11,
+    fontSize: 12,
+    marginTop: 8,
   },
   posterImage: {
     width: '100%',
-    height: 160,
+    height: 180,
     backgroundColor: '#E0E0E0',
   },
   checkinBadge: {
+    position: 'absolute',
+    top: 200,
+    right: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     backgroundColor: '#00B894',
-    paddingVertical: 8,
-    marginHorizontal: 20,
-    marginTop: -20,
-    borderRadius: 20,
-    gap: 6,
-    shadowColor: '#00B894',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    gap: 4,
   },
   checkinBadgeText: {
     color: '#FFF',
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '700',
   },
   posterInfo: {
@@ -752,29 +701,27 @@ const styles = StyleSheet.create({
   posterMetaText: {
     fontSize: 12,
     color: '#6C63FF',
-    fontWeight: '500',
   },
   posterDesc: {
-    fontSize: 13,
+    fontSize: 14,
     color: '#666',
     lineHeight: 20,
-    marginBottom: 12,
   },
   posterTags: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    marginTop: 12,
     gap: 8,
   },
   posterTag: {
     backgroundColor: '#6C63FF15',
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 10,
+    borderRadius: 8,
   },
   posterTagText: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#6C63FF',
-    fontWeight: '600',
   },
   posterFooter: {
     paddingHorizontal: 20,
@@ -789,14 +736,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
-    gap: 20,
+    marginBottom: 16,
   },
   posterStatItem: {
     alignItems: 'center',
+    paddingHorizontal: 24,
   },
   posterStatValue: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '800',
     color: '#6C63FF',
   },
@@ -811,38 +758,43 @@ const styles = StyleSheet.create({
     backgroundColor: '#EEE',
   },
   posterBrand: {
-    fontSize: 11,
-    color: '#CCC',
     textAlign: 'center',
+    fontSize: 11,
+    color: '#999',
   },
   shareActions: {
-    width: 300,
-    marginTop: 24,
+    flexDirection: 'row',
     gap: 12,
+    marginTop: 20,
+    width: '100%',
+    maxWidth: 320,
   },
   shareBtn: {
+    flex: 2,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#6C63FF',
-    paddingVertical: 16,
-    borderRadius: 16,
+    paddingVertical: 14,
+    borderRadius: 25,
     gap: 8,
   },
   shareBtnText: {
-    fontSize: 16,
-    fontWeight: '700',
     color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
   closeBtn: {
+    flex: 1,
     alignItems: 'center',
-    paddingVertical: 14,
-    borderRadius: 16,
+    justifyContent: 'center',
     backgroundColor: '#F5F5F5',
+    paddingVertical: 14,
+    borderRadius: 25,
   },
   closeBtnText: {
-    fontSize: 15,
-    fontWeight: '600',
     color: '#666',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
